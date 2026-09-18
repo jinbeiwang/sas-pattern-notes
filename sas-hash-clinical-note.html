@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAS Pattern Note — SAS Hash 对象：定义、查找、装载与输出</title>
+<style>
+  :root{
+    --ink:#17181a;
+    --muted:#5b6570;
+    --faint:#8b949e;
+    --rule:#d8dde3;
+    --rule-soft:#eaeef2;
+    --accent:#1b4f8a;
+    --accent-soft:#eef3f8;
+    --ok:#2b6b45;      --ok-bg:#f2f8f4;
+    --cav:#8a5a00;     --cav-bg:#fdf7ec;
+    --bad:#9a2b2b;     --bad-bg:#fdf3f3;
+    --code-bg:#f7f8f9;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; padding:0 24px 96px;
+    background:#ffffff; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.66;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:880px;margin:0 auto;}
+
+  /* ---------- masthead ---------- */
+  header.mast{padding:52px 0 20px;border-bottom:2px solid var(--ink);}
+  .kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:14px;}
+  h1{font-size:31px;line-height:1.22;letter-spacing:-.015em;margin:0 0 14px;font-weight:700;}
+  .deck{font-size:16.5px;line-height:1.55;color:var(--muted);margin:0 0 22px;max-width:760px;}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px 28px;font-size:12.5px;color:var(--muted);padding-top:16px;border-top:1px solid var(--rule-soft);}
+  .meta-row b{color:var(--ink);font-weight:600;}
+
+  /* ---------- sections ---------- */
+  h2{font-size:20px;margin:56px 0 6px;font-weight:700;letter-spacing:-.01em;}
+  h2 .n{color:var(--accent);margin-right:10px;font-variant-numeric:tabular-nums;}
+  h2 + .lede{color:var(--muted);font-size:14.5px;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid var(--rule-soft);}
+  h3{font-size:15.5px;margin:32px 0 8px;font-weight:700;}
+  h4{font-size:14px;margin:22px 0 6px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;}
+  p{margin:11px 0;}
+  a{color:var(--accent);}
+  ul,ol{margin:11px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+       font-size:12.6px;background:#f0f2f4;border:1px solid #e2e6ea;border-radius:3px;padding:1px 4px;}
+
+  /* ---------- code ---------- */
+  pre{margin:14px 0;background:var(--code-bg);border:1px solid var(--rule-soft);
+      border-left:3px solid var(--accent);border-radius:4px;padding:14px 16px;overflow-x:auto;}
+  pre code{background:none;border:none;padding:0;font-size:12.4px;line-height:1.62;color:#1f2328;white-space:pre;}
+  .cm{color:#6f7883;}
+  .kw{color:#0b3d68;font-weight:600;}
+  .mk{color:#8a5a00;font-weight:700;}
+
+  /* ---------- tables ---------- */
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.4px;}
+  thead th{
+    text-align:left;padding:9px 12px 8px;font-weight:700;font-size:12.4px;
+    border-top:1.8px solid var(--ink);border-bottom:1px solid var(--ink);
+    background:none;color:var(--ink);vertical-align:bottom;
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--rule-soft);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:1.8px solid var(--ink);}
+  td code,th code{font-size:12px;}
+  .num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+
+  /* ---------- status pills ---------- */
+  .pill{display:inline-block;font-size:10.6px;font-weight:700;letter-spacing:.07em;
+        text-transform:uppercase;padding:2px 7px;border-radius:3px;border:1px solid;white-space:nowrap;}
+  .ok{color:var(--ok);background:var(--ok-bg);border-color:#c4ddcd;}
+  .cav{color:var(--cav);background:var(--cav-bg);border-color:#e8d3a8;}
+  .bad{color:var(--bad);background:var(--bad-bg);border-color:#ecc4c4;}
+
+  /* ---------- callouts ---------- */
+  .box{margin:18px 0;padding:14px 18px;border-radius:4px;font-size:14px;background:#f7f8f9;border:1px solid var(--rule-soft);}
+  .box .t{display:block;font-weight:700;font-size:12.4px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;color:var(--muted);}
+  .box.note{background:var(--accent-soft);border-color:#cfdff0;}
+  .box.note .t{color:var(--accent);}
+  .box.finding{background:#fff;border:1px solid var(--rule);border-left:3px solid var(--cav);}
+  .box.finding .t{color:var(--cav);}
+  .box p:first-of-type{margin-top:0;}
+  .box p:last-child{margin-bottom:0;}
+
+  /* ---------- figure ---------- */
+  figure{margin:26px 0;}
+  figure svg{width:100%;height:auto;display:block;}
+  figcaption{font-size:13px;color:var(--muted);margin-top:12px;line-height:1.55;padding-top:10px;border-top:1px solid var(--rule-soft);}
+  figcaption b{color:var(--ink);}
+
+  /* ---------- misc ---------- */
+  .small{font-size:12.8px;color:var(--muted);}
+  hr{border:none;border-top:1px solid var(--rule-soft);margin:34px 0;}
+  footer{margin-top:64px;padding-top:18px;border-top:1px solid var(--rule-soft);font-size:12.6px;color:var(--faint);}
+</style>
+
+<!-- @@SPN-SHELL:CSS:BEGIN@@ -->
+<style id="spn-shell-css">
+/* ==========================================================================
+   SAS Pattern Note — collapsible left-hand contents shell
+   Appended to a note's own <style> block by scripts/add_toc_shell.py.
+   Assumes the note defines these custom properties (falls back if not):
+     --ink --muted --faint --rule --rule-soft --accent --accent-soft
+   ========================================================================== */
+
+:root { --sbw: 272px; }
+
+/* ---------- trigger ---------- */
+.spn-toggle {
+  position: fixed; z-index: 70; top: 14px; left: 14px;
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 600 12.2px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  letter-spacing: .02em;
+  color: var(--ink, #17181a); background: #fff;
+  border: 1px solid var(--rule, #d8dde3); border-radius: 6px;
+  padding: 8px 11px; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(23, 24, 26, .08);
+}
+.spn-toggle:hover { border-color: var(--accent, #1b4f8a); color: var(--accent, #1b4f8a); }
+.spn-toggle:focus-visible { outline: 2px solid var(--accent, #1b4f8a); outline-offset: 2px; }
+.spn-toggle .bars { font-size: 13px; line-height: 1; }
+
+/* ---------- sidebar ---------- */
+.spn-toc {
+  position: fixed; z-index: 60; top: 0; left: 0; bottom: 0; width: var(--sbw);
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  background: #fff; border-right: 1px solid var(--rule-soft, #eaeef2);
+  padding: 60px 8px 48px 22px;
+  transition: transform .22s ease;
+}
+.spn-toc::-webkit-scrollbar { width: 8px; }
+.spn-toc::-webkit-scrollbar-thumb { background: #dbe1e8; border-radius: 4px; }
+.spn-toc-title {
+  margin: 0 0 12px; padding-left: 10px;
+  font-size: 10.6px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--faint, #8b949e);
+}
+.spn-toc-nav { font-size: 12.9px; line-height: 1.42; }
+.spn-toc-nav a {
+  display: block; text-decoration: none; color: var(--muted, #5b6570);
+  padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 3px 3px 0;
+}
+.spn-toc-nav a:hover { color: var(--accent, #1b4f8a); background: #f6f8fa; }
+.spn-toc-nav a.spn-h3 { padding-left: 24px; font-size: 12.2px; }
+.spn-toc-nav a.spn-h2 { font-weight: 600; color: var(--ink, #17181a); }
+.spn-toc-nav a.active {
+  color: var(--accent, #1b4f8a); font-weight: 600; background: var(--accent-soft, #eef3f8);
+  border-left-color: var(--accent, #1b4f8a);
+}
+.spn-toc-foot {
+  margin-top: 22px; padding: 12px 10px 0;
+  border-top: 1px solid var(--rule-soft, #eaeef2);
+  font-size: 11px; line-height: 1.5; color: var(--faint, #8b949e);
+}
+
+/* ---------- content shift (wide screens) ---------- */
+html body { padding-left: var(--sbw); transition: padding-left .22s ease; }
+html body.spn-hidden { padding-left: 0; }
+html body.spn-hidden .spn-toc { transform: translateX(-100%); }
+
+/* ---------- scrim (only meaningful when the sidebar overlays content) ---------- */
+.spn-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(23, 24, 26, .28); display: none; }
+
+/* ---------- narrow: overlay drawer instead of pushing the text ---------- */
+@media (max-width: 1080px) {
+  html body { padding-left: 0; }
+  .spn-toc { transform: translateX(-100%); box-shadow: 0 8px 40px rgba(23, 24, 26, .18); }
+  html body:not(.spn-hidden) .spn-toc { transform: translateX(0); }
+  html body:not(.spn-hidden) .spn-scrim { display: block; }
+}
+
+/* ---------- print: contents are navigation, not content ---------- */
+@media print {
+  .spn-toc, .spn-toggle, .spn-scrim { display: none !important; }
+  html body { padding-left: 0 !important; }
+}
+
+/* ---------- anchors ---------- */
+.page h1, .page h2, .page h3, .page h4 { scroll-margin-top: 16px; }
+
+/* ---------- very small screens ---------- */
+@media (max-width: 520px) {
+  .spn-toggle .lbl { display: none; }
+}
+</style>
+<!-- @@SPN-SHELL:CSS:END@@ -->
+</head>
+<body>
+<!-- @@SPN-SHELL:DOM:BEGIN@@ -->
+<button class="spn-toggle" type="button" aria-controls="spnToc"
+        aria-expanded="true" title="Show or hide the contents (Esc)">
+  <span class="bars" aria-hidden="true">&#9776;</span><span class="lbl">Contents</span>
+</button>
+<aside class="spn-toc" id="spnToc" aria-label="Contents">
+  <div class="spn-toc-title">Contents</div>
+  <nav class="spn-toc-nav"></nav>
+  <div class="spn-toc-foot">Contents are built from the headings at read time.</div>
+</aside>
+<div class="spn-scrim" aria-hidden="true"></div>
+<!-- @@SPN-SHELL:DOM:END@@ -->
+
+
+
+<div class="page">
+
+<header class="mast">
+  <div class="kicker">SAS Pattern Note &middot; 临床编程 &middot; 参考型文档</div>
+  <h1>SAS Hash 对象的系统化用法：定义、键值查找、数据装载与输出</h1>
+  <p class="deck">一次把整张表读进内存，再让主表的每一行各自去“钉”上去——这是临床 SAS 编程里最值钱的一条肌肉记忆。
+  本文给出 hash 对象的完整语法骨架（declare → definekey → definedata → definedone → find / output），四类真实项目形态的
+  可搬运代码（受试者筛选、横向合并、纵向检索、SDTM/ADaM 衍生），以及八条按官方文档与会议论文归集的易错点。</p>
+  <div class="meta-row">
+    <span><b>来源</b> &nbsp;SAS 官方文档 / PharmaSUG / PHUSE 公开文献整理；无真实研究数据</span>
+    <span><b>状态</b> &nbsp;静态分析 —— 本环境无 SAS 会话，代码未经执行</span>
+  </div>
+</header>
+
+<div class="box note" style="margin-top:26px;">
+  <span class="t">Scope and de-identification</span>
+  <p class="small">这是一份<strong>语言用法参考</strong>，不是某个研究项目的交付物：研究编号与方案号一律写作 <code>NNNN</code>，
+  数据集与变量名使用 CDISC 标准名（<code>USUBJID</code>、<code>PARAMCD</code>、<code>ADT</code>、<code>AVAL</code>、
+  <code>AESEQ</code>、<code>CMSEQ</code> 等），公司环境、库名与路径均已剥离。凡涉及 SAS 语言行为的断言，均在正文中以
+  <em>[doc]</em>（官方文档）或 <em>[lit]</em>（文献作者陈述）标记出处；凡属工程判断者标 <em>[实践]</em>。
+  本文不包含任何受试者级数据，也没有可复核的衍生结果。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">1</span>需求与数据形态</h2>
+<p class="lede">先说要解决的问题，再说数据结构；这两件事清楚了，语法就只剩下翻译工作。</p>
+
+<p>临床编程里的合并与取数需求，最终都能落进四种形态。先认出自己属于哪一种，方法选择就随之确定：
+一对一用 <code>find()</code>，只判有无用 <code>check()</code>，一键多条才有 <code>find_next()</code> 的用武之地。</p>
+
+<table>
+  <thead><tr><th style="width:150px;">形态</th><th>典型场景</th><th>键的性质</th></tr></thead>
+  <tbody>
+    <tr><td>横向关联<br><span class="small">一对一 / 多对一</span></td>
+        <td>把 ADSL 的 <code>AGE</code>、<code>SEX</code>、<code>ARMCD</code> 贴到 ADLB 的每一行</td>
+        <td><code>USUBJID</code> 唯一</td></tr>
+    <tr><td>纵向检索</td>
+        <td>同一受试者内部跨访视取值：基线旗标 <code>ABLFL</code>、末次观测 <code>LSTFL</code></td>
+        <td><code>USUBJID</code> + 时间 / 访视</td></tr>
+    <tr><td>多对多展开</td>
+        <td>AE × CM 交叉：某项不良事件的持续区间是否被某类合并用药覆盖</td>
+        <td>一个键对应多条数据项</td></tr>
+    <tr><td>去重与重整</td>
+        <td>由长表压成一行一受试者；筛选失败人群列表；内存层面的 <code>NODUPKEY</code> 替代</td>
+        <td>去重键 + 需要留下来的那一条</td></tr>
+  </tbody>
+</table>
+
+<h3>1.1 术语</h3>
+<table>
+  <thead><tr><th style="width:180px;">名称</th><th>在本篇中的角色</th></tr></thead>
+  <tbody>
+    <tr><td><code>definekey</code> 键变量</td><td>检索入口。键值相同的两条记录，在默认设置下只有<strong>第一条</strong>被收下。</td></tr>
+    <tr><td><code>definedata</code> 数据变量</td><td>命中后被写回 PDV 的那几个变量；从未调用它时，键自身充当数据项。</td></tr>
+    <tr><td>PDV</td><td>程序数据向量。hash 对象正是通过改写 PDV 中的变量来“返回”结果，这一点是所有串值问题的根源。</td></tr>
+    <tr><td><code>rc</code> 返回码</td><td><strong>0 表示成功</strong>，非零表示失败（与 SAS 布尔约定相反）。每个方法调用都必须接。</td></tr>
+    <tr><td><code>hiter</code> 迭代器</td><td>配合 <code>ordered:</code> 顺序遍历整张表；多命中场景下来自这一层。</td></tr>
+  </tbody>
+</table>
+
+<div class="box">
+  <span class="t">问题形态</span>
+  <p>下面三条同时成立时，hash 才真正比别的方式省心：<strong>①</strong> 主表行数远大于被查表，且被查表能整体放进内存；
+  <strong>②</strong> 合并不需要排序，主表的行顺序必须原样保留（BDS 结构对此最为敏感）；
+  <strong>③</strong> 查到的中间结果需要在<strong>同一个 DATA 步内</strong>继续被加工，而不是另起一步。<br>
+  只满足 ① 的时候，<code>PROC SQL</code> 往往同样够用；三条都不成立，hash 只是把事情绕远了。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">2</span>核心语法骨架</h2>
+<p class="lede">生命周期只有五步，顺序不能变；每一步背后都有一个默认值，而这些默认值大多不是你想要的。</p>
+
+<figure>
+<svg viewBox="0 0 680 186" role="img" aria-label="Hash 对象生命周期：声明、定义键、定义数据、definedone 时装载，之后主表逐行查找并输出">
+  <g font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+    <text x="16" y="20" font-size="10.5" letter-spacing=".1em" fill="#8b949e">IF _N_ = 1 — 只做一次</text>
+    <rect x="16" y="30" width="648" height="96" rx="5" fill="#fcfdfe" stroke="#c9d2dc" stroke-dasharray="4 3"/>
+    <rect x="32" y="52" width="132" height="54" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="98" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#17181a">1 declare</text>
+    <text x="98" y="88" text-anchor="middle" font-size="10" fill="#5b6570">参数标签在此</text>
+    <rect x="186" y="52" width="126" height="54" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="249" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#17181a">2 definekey</text>
+    <text x="249" y="88" text-anchor="middle" font-size="10" fill="#5b6570">类型在此定型</text>
+    <rect x="334" y="52" width="126" height="54" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="397" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#17181a">3 definedata</text>
+    <text x="397" y="88" text-anchor="middle" font-size="10" fill="#5b6570">命中后回写的项</text>
+    <rect x="482" y="52" width="166" height="54" rx="4" fill="#eef3f8" stroke="#1b4f8a" stroke-width="1.5"/>
+    <text x="565" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#1b4f8a">4 definedone</text>
+    <text x="565" y="88" text-anchor="middle" font-size="10" fill="#17181a">这一刻才真正装载</text>
+    <line x1="164" y1="79" x2="184" y2="79" stroke="#8b949e" stroke-width="1.2"/>
+    <polygon points="184,79 178,76 178,82" fill="#8b949e"/>
+    <line x1="312" y1="79" x2="332" y2="79" stroke="#8b949e" stroke-width="1.2"/>
+    <polygon points="332,79 326,76 326,82" fill="#8b949e"/>
+    <line x1="460" y1="79" x2="480" y2="79" stroke="#1b4f8a" stroke-width="1.4"/>
+    <polygon points="480,79 474,76 474,82" fill="#1b4f8a"/>
+
+    <text x="16" y="152" font-size="10.5" letter-spacing=".1em" fill="#8b949e">主表逐行 — 每迭代一次</text>
+    <rect x="16" y="160" width="176" height="22" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="104" y="175" text-anchor="middle" font-size="11.5" fill="#17181a">set 主表</text>
+    <line x1="192" y1="171" x2="212" y2="171" stroke="#1b4f8a" stroke-width="1.4"/>
+    <polygon points="212,171 206,168 206,174" fill="#1b4f8a"/>
+    <rect x="216" y="160" width="248" height="22" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="340" y="175" text-anchor="middle" font-size="11.5" fill="#17181a">find / check / find_next —— 回写 PDV</text>
+    <line x1="464" y1="171" x2="484" y2="171" stroke="#1b4f8a" stroke-width="1.4"/>
+    <polygon points="484,171 478,168 478,174" fill="#1b4f8a"/>
+    <rect x="488" y="160" width="176" height="22" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="576" y="175" text-anchor="middle" font-size="11.5" fill="#17181a">output / 写出 datasets</text>
+  </g>
+</svg>
+<figcaption><b>Figure 1 |</b> 生命周期。数据集的装载发生在 <code>definedone()</code>，而不在 <code>declare</code> [doc]；
+<code>declare</code> 与三个 define 调用必须位于 <code>if _n_ = 1</code> 块内 —— 对象实例及其所有条目<strong>跨 DATA 步迭代保留</strong>，
+写在块外就是每行重建一次全表。</figcaption>
+</figure>
+
+<h3>2.1 骨架：一次装载，逐行查找</h3>
+
+<pre><code><span class="kw">data</span> adlb_enr(drop = rc hit);
+  <span class="cm">/* (1) 借壳定型：把将被 hash 读入的变量属性先写死在本 DATA 步里 */</span>
+  <span class="kw">if</span> 0 <span class="kw">then set</span> adsl(keep = usubjid age sex armcd trtsdt);
+
+  <span class="cm">/* (2) 只实例化一次；DEFINEDONE 时才真正读取 adsl */</span>
+  <span class="kw">if</span> _n_ = 1 <span class="kw">then do</span>;
+    <span class="kw">declare</span> hash h(dataset: <span class="mk">'adsl'</span>, hashexp: <span class="mk">8</span>, duplicate: <span class="mk">'e'</span>);
+    h.definekey(<span class="mk">'usubjid'</span>);
+    h.definedata(<span class="mk">'age'</span>, <span class="mk">'sex'</span>, <span class="mk">'armcd'</span>, <span class="mk">'trtsdt'</span>);
+    h.definedone();
+    <span class="kw">call missing</span>(usubjid, age, sex, armcd, trtsdt);   <span class="cm">/* 避开 uninitialized 提示 */</span>
+  <span class="kw">end</span>;
+
+  <span class="cm">/* (3) 主表逐行驱动 */</span>
+  <span class="kw">set</span> adlb_raw;
+  <span class="kw">call missing</span>(age, sex, armcd, trtsdt);            <span class="cm">/* 清掉上一行的残留 */</span>
+  rc  = h.find();
+  hit = (rc = <span class="mk">0</span>);                                   <span class="cm">/* 0 表示成功，把它翻成布尔 */</span>
+  <span class="kw">if</span> not hit <span class="kw">then do</span>;
+    <span class="kw">call missing</span>(age, sex, armcd, trtsdt);          <span class="cm">/* 未命中也必须显式处置 */</span>
+    put <span class="mk">'ERROR: no ADSL row for '</span> usubjid=;
+  <span class="kw">end</span>;
+<span class="kw">run</span>;</code></pre>
+
+<p>三个编号各自对应一类失败。<strong>(1)</strong> 不做，键与数据变量的<strong>长度和类型</strong>就由被装载数据集隐式决定，
+一旦来源表结构变化，<code>USUBJID</code> 的长度跟着漂。<strong>(2)</strong> 不做，每轮迭代重建整张表，最贵的那部分被反复支付。
+<strong>(3)</strong> 的 <code>call missing</code> 是全文性价比最高的一行代码 —— 第 5 节会解释它挡住的是哪一类缺陷。</p>
+
+<h3>2.2 方法速查</h3>
+<table>
+  <thead><tr><th style="width:192px;">成员</th><th>作用与返回值</th><th style="width:92px;">场合</th></tr></thead>
+  <tbody>
+    <tr><td><code>definekey('v1','v2')</code></td><td>定义键。带 <code>dataset:</code> 装载时可用 <code>all:'yes'</code> 把所有变量定为键。</td><td class="num">装载前</td></tr>
+    <tr><td><code>definedata('v1','v2')</code></td><td>定义命中后回写 PDV 的项。<code>all:'yes'</code> 表示整张表的变量都作为数据项。</td><td class="num">装载前</td></tr>
+    <tr><td><code>definedone()</code></td><td>收束定义；<strong>若带 <code>dataset:</code>，数据集正是在此刻被装载</strong> [doc]。</td><td class="num">装载前</td></tr>
+    <tr><td><code>find()</code></td><td>查键；命中则把数据变量写回 PDV 并返回 0。<code>find(key: v)</code> 可直接指定键值。</td><td class="num">要取回数据</td></tr>
+    <tr><td><code>check()</code></td><td>只判存在性，<strong>不更新数据变量</strong> [doc]。凡是不想弄脏 PDV 的场合都该用它。</td><td class="num">只问在不在</td></tr>
+    <tr><td><code>find_next() / find_prev()</code></td><td>多命中游标。<strong>须先 <code>find()</code> 再循环</strong> [doc]，取第二条、第三条……</td><td class="num">multidata</td></tr>
+    <tr><td><code>add() / replace()</code></td><td>运行期写入 / 覆写当前 PDV 里那一条。<code>add()</code> 在键已存在时会失败并返回非零码 [doc]。</td><td class="num">运行期建表</td></tr>
+    <tr><td><code>ref()</code></td><td>查得即调整、查不到即写入的合体；同时是 <code>suminc:</code> 计数的推进入口。</td><td class="num">累计 / 计数</td></tr>
+    <tr><td><code>remove() / clear() / delete()</code></td><td>删单条 / 清空全部条目但保留对象 / 销毁对象本身。</td><td class="num">表维护</td></tr>
+    <tr><td><code>output(dataset:'out')</code></td><td>把整张内存表写成数据集。<strong>键不会自动出现</strong>，除非它同时也是数据项，或压根没定义过数据项 [doc]。</td><td class="num">落盘</td></tr>
+    <tr><td><code>num_items</code><br><span class="small">属性，非方法</span></td><td>条目数。装载之后、查找之前的一种廉价自检：<code>h.num_items</code> 是否等于预期行数。</td><td class="num">自检</td></tr>
+    <tr><td><code>first() / last() / next() / prev()</code></td><td>按序遍历整表，须配合 <code>ordered:</code> 使用。</td><td class="num">有序遍历</td></tr>
+    <tr><td><code>sum() / sumdup()</code></td><td>读出 <code>suminc:</code> 维护的键汇总值（一键一条 / 一键多条）。</td><td class="num">内存聚合</td></tr>
+  </tbody>
+</table>
+
+<h3>2.3 DECLARE 参数标签</h3>
+<p>六个标签全部写在 <code>declare</code>（或 <code>_new_</code>）的括号里。它们决定装载阶段的行为，是“一次装载”里唯一还能拧的旋钮。</p>
+
+<table>
+  <thead><tr><th style="width:150px;">标签</th><th>取值与含义</th><th style="width:96px;">默认</th></tr></thead>
+  <tbody>
+    <tr><td><code>dataset:</code></td><td>要装载的数据集名（单双引号皆可；含宏变量时必须双引号）。<strong>支持数据集选项</strong>：
+        <code>dcl hash h(dataset: 'adsl(where=(fasfl="Y"))')</code> —— <code>keep=</code>、<code>rename=</code>、<code>where=</code> 顺手一并办了 [doc]。</td>
+        <td class="num">—</td></tr>
+    <tr><td><code>duplicate:</code></td><td>重复键如何处置。<code>'replace' | 'r'</code> 保留最后一条；<code>'error' | 'e'</code> 向<strong>日志报错</strong>。</td>
+        <td class="num">保留首条</td></tr>
+    <tr><td><code>multidata:</code></td><td><code>'yes' | 'y'</code> 允许一键多条；<code>'no' | 'n'</code> 一键一条。</td>
+        <td class="num">'no'</td></tr>
+    <tr><td><code>hashexp:</code></td><td>内部桶数的幂次：表大小 = 2<sup>n</sup>，<strong>最大值为 20</strong>。桶数不等于可存条目数（每桶可放任意多条），只影响查找效率 [doc]。</td>
+        <td class="num">见文档</td></tr>
+    <tr><td><code>ordered:</code></td><td><code>'ascending' | 'a' | 'yes' | 'y'</code> 升序，<code>'descending' | 'd'</code> 降序，<code>'no' | 'n'</code> 不定义顺序。
+        影响 <code>output()</code> 的写出顺序与迭代器的遍历顺序。</td>
+        <td class="num">'no'</td></tr>
+    <tr><td><code>suminc:</code></td><td>指定一个 DATA 步变量作为累加增量。<code>add() / replace()</code> 时该键的汇总值<strong>初始化</strong>为此变量值；
+        <code>find() / check() / ref()</code> 时把此变量值<strong>累加</strong>进去 [doc]。</td>
+        <td class="num">—</td></tr>
+  </tbody>
+</table>
+
+<div class="box">
+  <span class="t">值得单独记住的一处细节</span>
+  <p><code>suminc:</code> 的计数是<strong>由访问驱动</strong>的：<code>find()</code>、<code>check()</code>、<code>ref()</code> 都会把它推进一步 [doc]。
+  这意味着一次“我只是看看在不在”的 <code>check()</code>，同样会让键的汇总值 +1。做暴露次数、合并用药计数这类派生时，
+  选错方法就等于选错算式。</p>
+</div>
+
+<h3>2.4 返回码约定</h3>
+<p>官方文档的统一约定是：<strong>返回码为零表示成功，非零表示失败</strong>；若不提供接收返回码的变量而调用失败，
+日志会被写入相应的错误信息 [doc]。方向恰好与 SAS 布尔量相反，于是
+<code>rc = h.find(); hit = (rc = 0);</code> 这一句“翻译”几乎值得无条件写：它同时完成了三件事 ——
+接住返回码、把语义翻回来、给复核人员留下一行可读依据。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">3</span>临床项目应用示例</h2>
+<p class="lede">四段可直接改写的骨架。写法参考了上行文献里的技法，数据一律按 CDISC 通用结构虚构。</p>
+
+<h3>3.1 受试者筛选与分析集归属</h3>
+<p>场景：由 <code>DM</code> / <code>DS</code> 判定每位受试者是否进入 FAS，产出一行一受试者的旗标表。
+这一步的本质是<strong>只问“在不在”</strong>，没有任何变量需要取回，因此用 <code>check()</code> 而非 <code>find()</code> ——
+不动 PDV，也就没有串值的可能。</p>
+
+<pre><code><span class="kw">data</span> pop_flag;
+  <span class="kw">if</span> 0 <span class="kw">then set</span> elig(keep = usubjid);
+  <span class="kw">if</span> _n_ = 1 <span class="kw">then do</span>;
+    <span class="cm">/* duplicate:'e' —— 让重复键变成日志里的 ERROR，而不是静默丢人 */</span>
+    <span class="kw">declare</span> hash h_fas(dataset: <span class="mk">'elig (where = (fasenrl = "Y"))'</span>,
+                       duplicate: <span class="mk">'e'</span>);
+    h_fas.definekey(<span class="mk">'usubjid'</span>);
+    h_fas.definedone();
+    <span class="kw">call missing</span>(usubjid);
+  <span class="kw">end</span>;
+
+  <span class="kw">set</span> dm(keep = usubjid siteid age sex);
+  fasfl = <span class="kw">ifc</span>(h_fas.check() = <span class="mk">0</span>, <span class="mk">'Y'</span>, <span class="mk">'N'</span>);   <span class="cm">/* check 不回写任何数据变量 */</span>
+  <span class="kw">keep</span> usubjid siteid age sex fasfl;
+<span class="kw">run</span>;</code></pre>
+
+<p>这里 <code>duplicate: 'e'</code> 是防御的核心。资格判定<em>记录</em>天然是多行的（每个入组/排除原因一行），
+一旦把原始表直接喂进 hash，默认行为会保留首条、静默丢掉其余 —— 人群人数与实际情况对不上，而日志一个字都不提。
+<code>'e'</code> 把假设推到台面上：要么先在 SQL / SORT 步内把资格表压成一行一受试者，要么明确改用 <code>'r'</code>。</p>
+
+<h3>3.2 横向合并：人口学变量并入每条观测记录</h3>
+<p>场景：ADLB 每位受试者 × 参数 × 访视多行，需要贴上 <code>AGE</code>、<code>SEX</code>、<code>ARMCD</code>、<code>TRTSDT</code>。
+传统写法要先把 ADLB 排序、合并、再排回来；hash 让主表行序完全不动。</p>
+
+<pre><code><span class="kw">data</span> adlb(drop = rc hit);
+  <span class="kw">if</span> 0 <span class="kw">then set</span> adsl(keep = usubjid age sex armcd trtsdt);
+  <span class="kw">if</span> _n_ = 1 <span class="kw">then do</span>;
+    <span class="kw">declare</span> hash a(dataset: <span class="mk">'adsl'</span>, duplicate: <span class="mk">'e'</span>, hashexp: <span class="mk">8</span>);
+    a.definekey(<span class="mk">'usubjid'</span>);
+    a.definedata(<span class="mk">'age'</span>, <span class="mk">'sex'</span>, <span class="mk">'armcd'</span>, <span class="mk">'trtsdt'</span>);
+    a.definedone();
+    <span class="kw">call missing</span>(usubjid, age, sex, armcd, trtsdt);
+  <span class="kw">end</span>;
+
+  <span class="kw">set</span> adlb_raw;
+  <span class="cm">/* 每次 find 之前先把自己清零：这一行的性价比高于全篇任何一处注释 */</span>
+  <span class="kw">call missing</span>(age, sex, armcd, trtsdt);
+  rc  = a.find();
+  hit = (rc = <span class="mk">0</span>);
+  <span class="kw">if</span> not hit <span class="kw">then do</span>;
+    <span class="kw">call missing</span>(age, sex, armcd, trtsdt);
+    put <span class="mk">'ERROR: ADSL lookup failed for '</span> usubjid=;
+  <span class="kw">end</span>;
+<span class="kw">run</span>;</code></pre>
+
+<h3>3.3 纵向检索：受试者内跨访视取值</h3>
+<p>场景：为每位受试者在治疗期开始后的首次可用观测打 <code>ABLFL = 'Y'</code>。做法是让键只含受试者，
+把该受试者的全部记录装进同一个键之下，再用 <code>find_next()</code> 走完这条链 —— 全程不排序。</p>
+
+<pre><code><span class="kw">data</span> base_flag(drop = rc quit);
+  <span class="kw">if</span> 0 <span class="kw">then set</span> adlb(keep = usubjid paramcd adt aval);
+  <span class="kw">if</span> _n_ = 1 <span class="kw">then do</span>;
+    <span class="cm">/* 同一 USUBJID 下多条 —— 必须 multidata:'y' */</span>
+    <span class="kw">declare</span> hash v(dataset: <span class="mk">'adlb'</span>, multidata: <span class="mk">'y'</span>, ordered: <span class="mk">'a'</span>);
+    v.definekey(<span class="mk">'usubjid'</span>);
+    v.definedata(<span class="mk">'paramcd'</span>, <span class="mk">'adt'</span>, <span class="mk">'aval'</span>);
+    v.definedone();
+    <span class="kw">call missing</span>(usubjid, paramcd, adt, aval);
+  <span class="kw">end</span>;
+
+  <span class="kw">set</span> subjects(keep = usubjid trtsdt);      <span class="cm">/* 一行一受试者的驱动表 */</span>
+  best_adt = .;   best_aval = .;
+
+  <span class="cm">/* 首次 find 取第一条，find_next 沿游标走完本受试者全部记录 */</span>
+  <span class="kw">if</span> v.find() = <span class="mk">0</span> <span class="kw">then do</span>;
+    <span class="kw">do until</span>(quit);
+      <span class="kw">if</span> paramcd = <span class="mk">'LABPARM'</span> <span class="kw">and</span> not missing(aval)
+         <span class="kw">and</span> trtsdt <span class="kw">le</span> adt <span class="kw">then do</span>;
+        <span class="kw">if</span> missing(best_adt) <span class="kw">or</span> adt &lt; best_adt <span class="kw">then do</span>;
+          best_adt = adt;   best_aval = aval;
+        <span class="kw">end</span>;
+      <span class="kw">end</span>;
+      quit = (v.find_next() <span class="kw">ne</span> <span class="mk">0</span>);        <span class="cm">/* 用游标自己的返回码退出 */</span>
+    <span class="kw">end</span>;
+  <span class="kw">end</span>;
+
+  ablfl = <span class="kw">ifc</span>(not missing(best_adt), <span class="mk">'Y'</span>, <span class="mk">''</span>);
+  <span class="kw">keep</span> usubjid trtsdt best_adt best_aval ablfl;
+<span class="kw">run</span>;</code></pre>
+
+<p>关键点有三：<strong>multidata 必须开</strong>，否则同一个 <code>USUBJID</code> 只有第一条进得了表；
+<strong><code>find_next()</code> 必须接在成功的 <code>find()</code> 之后</strong>（官方文档把它定义为与 FIND 配合使用的游标方法）；
+<strong>退出条件写在循环体内</strong>，由游标自身的返回码决定，而不是指望某种隐含终止。</p>
+
+<h3>3.4 SDTM/ADaM 衍生：多对多展开与 output() 落盘</h3>
+<p>场景：判断每条不良事件的持续区间是否被某类合并用药覆盖 —— 一个 AE 可能对应多条 CM，一条 CM 也可能覆盖多个 AE。
+这正是 PhUSE 2012 论文 CS05 用 hash 重写的<strong>原始案例</strong>之一（作者称其实现不依赖任何宏变量，单个 DATA 步完成）。
+这类代码的实用价值之外，还集中体现了 <code>output()</code> 最容易踩到的那个陷阱。</p>
+
+<pre><code><span class="kw">data</span> ae_cm_pairs;
+  <span class="kw">if</span> 0 <span class="kw">then set</span> cm(keep = usubjid cmstdtc cmendtc cmdecod);
+  <span class="kw">if</span> _n_ = 1 <span class="kw">then do</span>;
+    <span class="cm">/* 同一受试者多条 CM —— multidata:'y' */</span>
+    <span class="kw">declare</span> hash cm(dataset: <span class="mk">'cm'</span>, multidata: <span class="mk">'y'</span>);
+    cm.definekey(<span class="mk">'usubjid'</span>);
+    cm.definedata(<span class="mk">'cmstdtc'</span>, <span class="mk">'cmendtc'</span>, <span class="mk">'cmdecod'</span>);
+    cm.definedone();
+    <span class="kw">call missing</span>(usubjid, cmstdtc, cmendtc, cmdecod);
+  <span class="kw">end</span>;
+
+  <span class="kw">set</span> ae(keep = usubjid aeseq aestdtc aeendtc aedecod);
+  <span class="kw">call missing</span>(cmstdtc, cmendtc, cmdecod);      <span class="cm">/* 先清零，避免上一行的 CM 残留被写出 */</span>
+
+  rc = cm.find();
+  <span class="kw">do while</span>(rc = <span class="mk">0</span>);
+    <span class="kw">if</span> cmstdtc <span class="kw">le</span> aestdtc <span class="kw">and</span> aeendtc <span class="kw">le</span> cmendtc <span class="kw">then output</span>;
+    rc = cm.find_next();
+  <span class="kw">end</span>;
+  <span class="kw">drop</span> rc;
+<span class="kw">run</span>;</code></pre>
+
+<div class="box finding">
+  <span class="t">Finding — output() 不会自动把键带上</span>
+  <p>官方文档的表述是明确的：<strong>hash 对象的键不会被自动写入输出数据集</strong>。想把键留在结果里，办法只有两条 ——
+  把键也写进 <code>definedata()</code>，或者<strong>干脆不定义任何数据项</strong>（此时键被写入输出数据集）。
+  上面的例子走的是第一条：<code>cmdecod</code> 属于数据项所以必须显式列出；漏掉任何一个参与结果呈现的变量，
+  <code>output()</code> 出来的表看起来一切正常，只是少了那几列。这一条也是 WUSS 2022 那篇入门论文里
+  “不带 <code>multidata</code> 的 hash + <code>output()</code> 等价于 <code>PROC SORT NODUPKEY</code>”这则对照的前提。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">4</span>为什么是 hash，而不是 MERGE / SQL / FORMAT</h2>
+<p class="lede">把每种写法的边界一次性摊开；这里的结论由能力边界驱动，而不是由速度驱动。</p>
+
+<table>
+  <thead><tr><th style="width:150px;">写法</th><th>能力边界</th><th>代价 / 限制</th><th style="width:104px;">判定</th></tr></thead>
+  <tbody>
+    <tr><td>DATA step MERGE</td>
+        <td><span class="pill cav">受限</span> 要求两侧按 BY 变量排序；多对多会静默错位</td>
+        <td>两次排序的 I/O；BY 值组合缺失时容易产出意料之外的行对齐</td>
+        <td><span class="pill cav">够用但笨重</span></td></tr>
+    <tr><td>PROC SQL 连接</td>
+        <td><span class="pill ok">能做</span> 多对多可以笛卡尔积形式表达，不需要排序</td>
+        <td>结果<strong>不保证行序</strong>；连接与逐行派生无法在同一个动程内交替进行；中间态难以调试</td>
+        <td><span class="pill cav">部分场景</span></td></tr>
+    <tr><td>自定义 FORMAT<br><span class="small">CNTLIN /CNTLOUT</span></td>
+        <td><span class="pill ok">能做</span> 静态字典映射的利器：编码 → 首选术语、ATC 分类</td>
+        <td>装载后不可变更；多返回值需要多个变量或多个格式；不适合内容需要随时改写的任务</td>
+        <td><span class="pill ok">静态字典首选</span></td></tr>
+    <tr><td>SET with POINT= / KEY=</td>
+        <td><span class="pill cav">受限</span> 随机访问单条记录，无需整表装载</td>
+        <td>需要行号或已建索引；代价按访问次数累计，一万次查找就是一万次随机读</td>
+        <td><span class="pill cav">超大表慎用</span></td></tr>
+    <tr><td><strong>Hash 对象</strong></td>
+        <td><span class="pill ok">能做</span> 无需排序、保留行序、支持多对多、运行期可维护表内容</td>
+        <td>整张被查表的<strong>内存占用</strong>；DATA 步一结束内容就消失，必须显式写出</td>
+        <td><span class="pill ok">本文推荐</span></td></tr>
+  </tbody>
+</table>
+
+<p>真正让 hash 在这四类场景胜出的，并不是“更快”这一条，而是<strong>它可以边读边改那张内存表</strong>。
+<code>add()</code>、<code>replace()</code>、<code>ref()</code>、<code>suminc:</code> 让累积计数、分组极值、动态去重
+全部收缩进一个 DATA 步，中间结果既不必落盘，也不必在多个 PROC 之间维持状态。这一点 MERGE 与 SQL 都做不到；
+FORMAT 则完全没有考虑。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">5</span>非理想输入下的行为：易错点矩阵</h2>
+<p class="lede">八条症状、各自的机制，以及那一句最小改动就能挡住它的防御代码。</p>
+
+<div class="box note">
+  <span class="t">证据等级声明</span>
+  <p class="small">本环境<strong>没有 SAS 会话</strong>，下列行为<strong>均未在本文中执行验证</strong>，而是逐条归因于官方文档或公开会议文献：
+  <em>[doc]</em> 为官方文档既定行为，<em>[lit]</em> 为论文作者的陈述，<em>[实践]</em> 为工程判断而非语言规定。
+  在有 SAS 会话的验证环境中，建议先用三行数据实测确认每条行为在本机 SAS 版本上的实际表现，再据此固化写法。</p>
+</div>
+
+<h3>5.1 场景矩阵</h3>
+<table>
+  <thead><tr><th style="width:56px;">Case</th><th>情形</th><th>行为</th><th style="width:104px;">判定</th></tr></thead>
+  <tbody>
+    <tr><td class="num">P1</td>
+        <td>被装载的数据集里存在重复键</td>
+        <td>默认<strong>保留第一条，其后同键全部被忽略</strong>；<code>'r'</code> 保留最后一条；<code>'e'</code> 向日志报错 [doc]</td>
+        <td><span class="pill bad">静默丢数据</span></td></tr>
+    <tr><td class="num">P2</td>
+        <td>某一次 <code>find()</code> 未命中</td>
+        <td>目标数据项<strong>不会被自动置为缺失</strong>，而是停留在最近一次成功调用的值上 [lit]</td>
+        <td><span class="pill bad">跨行串值</span></td></tr>
+    <tr><td class="num">P3</td>
+        <td>键的类型或长度不一致（字符 vs 数值、长度不足）</td>
+        <td><code>key:</code> 后的值<strong>其类型必须与 definekey 定义的键变量一致</strong> [doc]；实务中表现为匹配不上，而不是报错</td>
+        <td><span class="pill bad">全表失配</span></td></tr>
+    <tr><td class="num">P4</td>
+        <td>同一个 DATA 步内多次查找写入同一批变量</td>
+        <td>与 P2 同源：先前的命中把值落下，之后的未命中就拿它当答案 [lit]</td>
+        <td><span class="pill bad">串值</span></td></tr>
+    <tr><td class="num">P5</td>
+        <td><code>multidata:'no'</code> 时对同一个键第二次 <code>add()</code></td>
+        <td>ADD 失败并返回非零码 [doc] —— 不接 <code>rc</code> 就把失败咽了下去</td>
+        <td><span class="pill cav">被吞掉的失败</span></td></tr>
+    <tr><td class="num">P6</td>
+        <td><code>declare</code> 没包进 <code>if _n_ = 1</code></td>
+        <td>对象与条目<strong>跨迭代保留</strong>，而每执行一次 declare 就重建一次实体集 [doc] [lit]</td>
+        <td><span class="pill cav">逻辑与内存双重浪费</span></td></tr>
+    <tr><td class="num">P7</td>
+        <td><code>hashexp:</code> 设得偏小</td>
+        <td>不影响正确性；桶数不等于容量，只影响查找效率，文档注明上限为 20 [doc]</td>
+        <td><span class="pill ok">仅性能</span></td></tr>
+    <tr><td class="num">P8</td>
+        <td>DATA 步结束前没有 <code>output()</code></td>
+        <td>整张内存表的内容随之消失 [lit]</td>
+        <td><span class="pill bad">一无所获</span></td></tr>
+  </tbody>
+</table>
+
+<h3>5.2 Findings</h3>
+
+<div class="box finding">
+  <span class="t">Finding 1 — 重复键石沉大海，人群人数对不上</span>
+  <p><strong>症状：</strong>分析集人数比实际少几人，日志干净，无人报错。<strong>机制：</strong>被装载表里同一个
+  <code>USUBJID</code> 出现多行（同一访视多次采样、重复录入、资格原因表未压缩），默认行为是保留首条、忽略其余。
+  <strong>防御：</strong>装载时一律写 <code>duplicate: 'e'</code>，把“我以为它唯一”这个假设交给 SAS 去证伪；
+  需要取最新一条时才改用 <code>'r'</code>，并在规格里写明为什么最新那条才是答案。
+  <strong>依据：</strong>Component Objects: Reference，DECLARE 语句条目。</p>
+</div>
+
+<div class="box finding">
+  <span class="t">Finding 2 — 未命中的 find() 把上一位受试者的值留了下来</span>
+  <p><strong>症状：</strong>少数几行的 <code>ARMCD</code>、<code>TRTSDT</code> 显示为前面某行的取值，QC 平台上表现为“个别人数据错”。
+  <strong>机制：</strong><code>find()</code> 失败时，目标数据变量不会被自动置空，而是<strong>保持最近一次成功调用的值</strong> ——
+  原文的说法是 “it is the value of your last successful call”。<strong>防御：</strong>两条路任选其一，第 3.2 节的代码里都写着：
+  查找前先 <code>call missing(...)</code>，或在 <code>rc ne 0</code> 分支里显式赋值。绝不能指望 SAS 替你清零。
+  <strong>依据：</strong>Axelrod（2019，SGF Paper 3125-2019）第 6 步的原文陈述；<em>本文未执行 SAS，此项未按本 note 实测。</em></p>
+</div>
+
+<div class="box finding">
+  <span class="t">Finding 3 — 只需要“在不在”却用了 find()，把 PDV 弄脏</span>
+  <p><strong>症状：</strong>打旗标的派生里，顺带覆盖了主表本应保留的字段值。<strong>机制：</strong>FIND 与 CHECK 的分工是明确的 ——
+  <strong>CHECK 只返回是否存在，不更新数据变量</strong> [doc]；用错名字就把一次查询变成了一次赋值。
+  <strong>防御：</strong>凡不需要取回变量的场合（人群旗标、派生内部存在性判断），一律 <code>check()</code>。
+  附带提醒：在带 <code>suminc:</code> 的表上，<code>check()</code> 同样会推进计数。</p>
+</div>
+
+<div class="box finding">
+  <span class="t">Finding 4 — 类型或长度不匹配，整张表静默失配</span>
+  <p><strong>症状：</strong>一行都没合上，或者只有前几位受试者合上了。<strong>机制：</strong>键的类型由
+  <code>definekey</code> 调用<strong>那一刻 PDV 中该变量的类型</strong>决定，而 <code>key:</code> 后的键值类型必须与之匹配 [doc]。
+  临床数据里最常见的两例：<code>USUBJID</code> 在源数据里是数值 <code>101001</code>、在 SDTM 里是字符 <code>'NNNN-101-001'</code>；
+  以及没有写出足够的 <code>length</code>，导致长 ID 被截断后再去匹配一个未被截断的键。
+  <strong>防御：</strong>用 <code>if 0 then set</code> 在 DATA 步里把键的长度与类型统一固定下来；跨类型匹配时先用
+  <code>put(..., , best.)</code> / <code>input(..., , best.)</code> 显式转换，不要依赖隐式转换。<em>[实践]</em></p>
+</div>
+
+<div class="box finding">
+  <span class="t">Finding 5 — 作用域与生命周期：该复用时不复用，该清空时不清空</span>
+  <p><strong>症状：</strong>两个方向都会中招。<strong>①</strong> <code>declare</code> 写在 <code>if _n_ = 1</code> 之外 ——
+  对象被反复实例化，装载代价每行重复支付一次，运行期 <code>add()</code> 出来的条目也随之错乱。
+  <strong>②</strong> 反过来：想按 BY 组分组处理（每位受试者各自的临时子表），却漏了 <code>clear()</code>，
+  于是后一位受试者的表里混进了前一位的条目。<strong>防御：</strong>声明一律放进 <code>if _n_ = 1</code>；
+  需要按组重建时，在 <code>first.usubjid</code> 处显式 <code>clear()</code>，并在 <code>last.usubjid</code> 之前把结果取出。
+  <em>[实践]</em></p>
+</div>
+
+<figure>
+<svg viewBox="0 0 680 176" role="img" aria-label="连续三行的横向合并：第二行未命中但保留了第一行的取值">
+  <g font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+    <text x="16" y="18" font-size="11" font-weight="700" fill="#17181a">连续三行的横向合并 —— 第 2 行没能在被查表里命中</text>
+
+    <rect x="16" y="34" width="180" height="30" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="28" y="54" font-size="11.5" fill="#17181a">主表第 1 行　USUBJID=01</text>
+    <text x="212" y="54" font-size="11.5" fill="#2b6b45">find() → rc = 0</text>
+    <rect x="340" y="34" width="150" height="30" rx="4" fill="#f2f8f4" stroke="#c4ddcd"/>
+    <text x="352" y="54" font-size="11.5" fill="#2b6b45">ARMCD=A　（正确）</text>
+
+    <rect x="16" y="76" width="180" height="30" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="28" y="96" font-size="11.5" fill="#17181a">主表第 2 行　USUBJID=02</text>
+    <text x="212" y="96" font-size="11.5" fill="#9a2b2b">find() → rc ≠ 0</text>
+    <rect x="340" y="76" width="150" height="30" rx="4" fill="#fdf3f3" stroke="#ecc4c4"/>
+    <text x="352" y="96" font-size="11.5" fill="#9a2b2b">ARMCD=A　（串值）</text>
+
+    <rect x="16" y="118" width="180" height="30" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="28" y="138" font-size="11.5" fill="#17181a">主表第 3 行　USUBJID=03</text>
+    <text x="212" y="138" font-size="11.5" fill="#2b6b45">find() → rc = 0</text>
+    <rect x="340" y="118" width="150" height="30" rx="4" fill="#f2f8f4" stroke="#c4ddcd"/>
+    <text x="352" y="138" font-size="11.5" fill="#2b6b45">ARMCD=B　（正确）</text>
+
+    <text x="510" y="70" font-size="11" fill="#17181a">缺失处不会被清零，</text>
+    <text x="510" y="88" font-size="11" fill="#17181a">而是沿用上一次</text>
+    <text x="510" y="106" font-size="11" fill="#9a2b2b" font-weight="700">成功调用的取值</text>
+
+    <text x="16" y="166" font-size="10.5" fill="#8b949e">挡住它的两条路：find() 前先 call missing(...)，或在未命中分支里显式赋值。二者取其一即可。</text>
+  </g>
+</svg>
+<figcaption><b>Figure 2 |</b> 情形 P2 的串值机制。危险之处在于这不是“某一行报错了”，而是“某几行错了、且看起来完全合理”——
+这类缺陷从不在日志里留痕，只能靠独立第二重编程比出来。</figcaption>
+</figure>
+
+<!-- ============================================================ -->
+<h2><span class="n">6</span>复用检查清单</h2>
+<p class="lede">把任何一段代码复制进另一个程序之前，逐条核对。</p>
+
+<ul>
+  <li><strong>先证伪唯一性，再谈正确性。</strong>装载时写 <code>duplicate: 'e'</code>；只有明确知道想要最新那条时，才在规格里写明理由并改用 <code>'r'</code>。</li>
+  <li><strong>每次 <code>find()</code> 之前 <code>call missing()</code>，或者在未命中分支里显式赋值。</strong>两者选一，但必须有一个。</li>
+  <li><strong>不需要取回变量时就用 <code>check()</code>。</strong>同时记住：在 <code>suminc:</code> 表上它同样会计数。</li>
+  <li><strong>每个方法调用都接 <code>rc</code> 并翻译成布尔。</strong><code>rc = h.find(); hit = (rc = 0);</code> 一行同时提供了返回码、语义和可读依据。</li>
+  <li><strong><code>declare</code> 与三个 define 一起放进 <code>if _n_ = 1</code>；</strong>按 BY 组重建时另行在 <code>first.</code> 处 <code>clear()</code>。</li>
+  <li><strong>用 <code>if 0 then set</code> 固定键与数据变量的长度和类型。</strong>别让被装载表的结构变化悄悄改掉 <code>USUBJID</code> 的长度。</li>
+  <li><strong>输出前确认 <code>definedata()</code> 已含全部需要的键。</strong><code>output()</code> 不会替你把键带上（除非从未定义数据项）。</li>
+  <li><strong><code>multidata:'y'</code> 时先 <code>find()</code> 再循环 <code>find_next()</code>，</strong>退出条件写在循环体内部。</li>
+  <li><strong>按条目数估算 <code>hashexp:</code></strong>（表大小 = 2<sup>n</sup>，上限 20）；它只影响效率、不影响对错。先把内存预算算清楚，超大表不要硬塞。</li>
+  <li><strong>清理 PDV：</strong><code>rc</code>、<code>hit</code> 等临时变量用 <code>drop=</code> 剔掉，别让它们出现在交付数据集里。</li>
+  <li><strong>日志标准：零 ERROR、零 WARNING，且 uninitialized 提示已用 <code>call missing</code> 消除。</strong>在受监管环境中，解释不了的 note 等于潜在的未知项。</li>
+  <li><strong>独立双重编程仍然不可省。</strong>P1 与 P2 两类缺陷都不报错，只能靠独立实现比对发现。</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2><span class="n">7</span>参考来源</h2>
+<p class="lede">正文中的 <em>[doc]</em> 与 <em>[lit]</em> 指向下列条目。</p>
+
+<table>
+  <thead><tr><th style="width:210px;">来源</th><th>用于支撑本文的哪些断言</th></tr></thead>
+  <tbody>
+    <tr><td>SAS Institute，<em>SAS 9.4 / SAS Viya Component Objects: Reference</em>（DECLARE 语句、DEFINEDONE、DEFINEDATA、OUTPUT 方法等条目）</td>
+        <td>六项 <code>declare</code> 参数标签的语义与默认值；重复键“保留首条”的默认行为与 <code>'r'</code> / <code>'e'</code> 的取舍；
+        数据集在 <code>definedone()</code> 时被装载；<code>hashexp:</code> 表大小 = 2<sup>n</sup>、上限 20、桶数不等于条目数；
+        <code>output()</code> 不会自动写入键；未显式赋值时的 uninitialized 提示与 <code>call missing</code> 处置；<code>suminc:</code> 计数由访问驱动。
+        <br><span class="small">https://support.sas.com/documentation/cdl/en/lecompobjref/69740/PDF/default/lecompobjref.pdf</span></td></tr>
+    <tr><td>SAS Help Center，<em>FIND Method</em>（Base SAS 参考）</td>
+        <td>FIND 与 CHECK 的差异（“数据变量不被更新”）；<code>key:</code> 值的类型须与 <code>definekey</code> 定义的键变量一致；
+        存在多个数据项时应配合 FIND_NEXT / FIND_PREV 使用。
+        <br><span class="small">https://support.sas.com/documentation/cdl/en/lrdict/61724/HTML/default/a002588683.htm</span></td></tr>
+    <tr><td>Axelrod, E.（2019），<em>HASH Beyond Lookups – Take Another Look</em>，SAS Global Forum 2019，Paper 3125-2019，Abt Associates Inc.</td>
+        <td>Finding 2 的核心依据 —— 原文指出 <code>find()</code> 不成功时目标数据项<strong>不会被自动置为缺失</strong>，而是保持最近一次成功调用的值，
+        并给出 <code>call missing()</code> 与未命中分支赋值两条防御写法；另支援两条生命周期陈述：“hash 表中的条目不会在每次 DATA 步迭代时被重新初始化”
+        与“DATA 步结束时表内容即消失”。</td></tr>
+    <tr><td>Secosky, J. &amp; Bloom, J.（2007），<em>Getting Started with the DATA Step Hash Object</em>，SAS Global Forum 2007，Paper 271-2007</td>
+        <td>DATA 步 hash 对象的基础用法与入门惯例。</td></tr>
+    <tr><td>Burlew, M. M.（2012），<em>SAS Hash Object Programming Made Easy</em>，SAS Institute Inc.</td>
+        <td>§2.3 参数标签表的交叉核对来源（<code>dataset:</code>、<code>duplicate:</code>、<code>hashexp:</code>、<code>multidata:</code>、<code>ordered:</code>、<code>suminc:</code>）。</td></tr>
+    <tr><td>Garbutt, D. J.（2012），<em>Re-Programming a Many-To-Many Merge with Hash Objects</em>，PhUSE 2012（Budapest），Paper CS05</td>
+        <td>§3.4 多对多合并示例的行业原型（CM 回并进 AE 的一对多场景），以及作者所述“不依赖任何宏变量、单个 DATA 步完成”的实现主张。</td></tr>
+    <tr><td>Lafler, K. P.（2011），<em>An Introduction to SAS® Hash Programming Techniques</em>，PharmaSUG 2011，Paper TT15</td>
+        <td>PharmaSUG 论坛层面 hash 编程技术的综述性入口。另见同届 King, J. H.（2011），
+        <em>Using a HASH Table to Reference Variables in an Array by Name</em>，PharmaSUG 2011，Paper TT04。</td></tr>
+    <tr><td>Western Users of SAS Software（2022），<em>Getting Started with DATA Step Hash Objects</em>，Paper WUSS-2022-108</td>
+        <td>§3.4 中“不带 <code>multidata</code> 的 hash 加 <code>output()</code> 其结果等价于 <code>PROC SORT NODUPKEY</code>”这则对照。</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  本 note 为<strong>静态分析</strong>：撰写环境没有 SAS 会话，所有代码示例均<strong>未编译、未执行</strong>，因此不声称任何运行结果或性能数字。
+  涉及 SAS 语言行为的断言均已归因于上述文献并以 <em>[doc]</em> / <em>[lit]</em> 标记；标 <em>[实践]</em> 者为工程判断而非语言规定。
+  示例数据全部虚构：研究编号以 <code>NNNN</code> 占位，数据集与变量名取自 CDISC SDTM/ADaM 通用结构，不含任何受试者级信息。<br>
+  特别说明：Finding 2 的“未命中保留旧值”出自论文作者对行为的描述，而非对文档原文的引用。在具备 SAS 会话的验证环境中，
+  建议用三行数据实测确认该行为在本机 SAS 版本上的实际表现，再据此确定防御写法的具体位置。<br>
+  由 sas-pattern-note 技能生成。左侧目录在页面读取时由标题自动生成，增删或调整章节顺序无需另行维护链接。
+</footer>
+
+</div>
+
+<!-- @@SPN-SHELL:JS:BEGIN@@ -->
+<script id="spn-shell-js">
+/* ==========================================================================
+   SAS Pattern Note — contents shell behaviour
+   1. builds the table of contents from .page h2 / h3 (no hand-maintained list)
+   2. highlights the heading you are reading
+   3. shows / hides the panel; the choice is remembered
+   Idempotent and dependency-free. Safe to refresh by re-running the injector.
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  var HIDDEN = 'spn-hidden';
+  var KEY = 'spn.toc.hidden';
+  var NARROW = 1080;
+
+  var body = document.body;
+  var toggle = document.querySelector('.spn-toggle');
+  var toc = document.querySelector('.spn-toc');
+  var nav = document.querySelector('.spn-toc-nav');
+  var scrim = document.querySelector('.spn-scrim');
+  if (!toggle || !toc || !nav) return;
+
+  /* ---------- collect headings ---------- */
+  var heads = [].slice.call(document.querySelectorAll('.page h2, .page h3'))
+    .filter(function (h) { return !h.classList.contains('spn-skip'); });
+
+  if (!heads.length) {                 /* nothing to navigate: get out of the way */
+    toc.style.display = 'none';
+    toggle.style.display = 'none';
+    if (scrim) scrim.style.display = 'none';
+    return;
+  }
+
+  var used = {};
+  function slug(text) {
+    var base = text.toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim().replace(/\s+/g, '-').replace(/-+/g, '-');
+    if (!base) base = 'section';
+    var n = used[base] = (used[base] || 0) + 1;
+    return n > 1 ? base + '-' + n : base;
+  }
+  function label(h) {
+    var text = h.textContent.replace(/\s+/g, ' ').trim();
+    var num = h.querySelector('.n');                 /* the "1" / "2" run-in numeral */
+    if (num) {
+      var t = num.textContent.trim();
+      if (t && text.indexOf(t) === 0) text = t + ' ' + text.slice(t.length).trim();
+    }
+    return text;
+  }
+
+  var links = heads.map(function (h) {
+    if (!h.id) h.id = slug(label(h));
+    var a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = label(h);
+    a.className = h.tagName === 'H3' ? 'spn-h3' : 'spn-h2';
+    nav.appendChild(a);
+    return a;
+  });
+
+  /* ---------- show / hide ---------- */
+  var lbl = toggle.querySelector('.lbl');
+  function paint() {
+    var hidden = body.classList.contains(HIDDEN);
+    if (lbl) lbl.textContent = hidden ? 'Contents' : 'Hide contents';
+    toggle.setAttribute('aria-expanded', String(!hidden));
+    if (scrim) scrim.setAttribute('aria-hidden', String(hidden));
+  }
+  function setHidden(v, remember) {
+    body.classList.toggle(HIDDEN, !!v);
+    paint();
+    if (remember) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {} }
+  }
+  toggle.addEventListener('click', function () {
+    setHidden(!body.classList.contains(HIDDEN), true);
+  });
+  if (scrim) scrim.addEventListener('click', function () { setHidden(true, true); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !body.classList.contains(HIDDEN) && window.innerWidth <= NARROW) {
+      setHidden(true, true);
+    }
+  });
+  nav.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('a') && window.innerWidth <= NARROW) setHidden(true, true);
+  });
+
+  /* ---------- restore ---------- */
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  setHidden(saved === null ? window.innerWidth <= NARROW : saved === '1', false);
+
+  /* ---------- reading position ---------- */
+  var ticking = false;
+  function sync() {
+    ticking = false;
+    var y = window.pageYOffset || document.documentElement.scrollTop;
+    var current = 0, i;
+    for (i = 0; i < heads.length; i++) {
+      if (heads[i].getBoundingClientRect().top <= 96) { current = i; } else { break; }
+    }
+    if (window.innerHeight + y >= document.documentElement.scrollHeight - 4) {
+      current = heads.length - 1;
+    }
+    for (i = 0; i < links.length; i++) links[i].classList.toggle('active', i === current);
+
+    if (!body.classList.contains(HIDDEN)) {              /* keep it in view inside the panel */
+      var el = links[current];
+      var top = el.offsetTop, view = toc.clientHeight;
+      if (top < toc.scrollTop + 24) toc.scrollTop = Math.max(0, top - 24);
+      else if (top + el.offsetHeight > toc.scrollTop + view - 40) toc.scrollTop = top - view + 80;
+    }
+  }
+  function onScroll() {
+    if (!ticking) { ticking = true; window.requestAnimationFrame(sync); }
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  sync();
+})();
+</script>
+<!-- @@SPN-SHELL:JS:END@@ -->
+</body>
+</html>

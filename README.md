@@ -20,8 +20,12 @@ that can be hidden. Adding or renaming a section needs no edit to any link list.
 
 ## Notes
 
+Each note except the first is served under the site root at its own filename, for example
+<https://jinbeiwang.github.io/sas-pattern-notes/sas-hash-clinical-note.html>.
+
 | Note | Read online | Subject |
 |---|---|---|
+| The SAS hash object: definition, lookup, load and output | [web](https://jinbeiwang.github.io/sas-pattern-notes/sas-hash-clinical-note.html) · [source](sas-hash-clinical-note.html) | Full syntax skeleton (declare → definekey → definedata → definedone → find / output), six argument tags, the method set and its return codes; four clinical shapes (screening and population flags, horizontal ADSL→ADLB merge, cross-visit baseline retrieval, AE×CM many-to-many), written in Chinese. Eight pitfalls with sources — duplicate keys kept silently, dataset loaded at `definedone()` rather than `declare`, data variables retaining their previous value when `find()` misses, `output()` not writing keys, `key:` type agreement. |
 | Chained kit replacement with the SAS hash object | [web](https://jinbeiwang.github.io/sas-pattern-notes/) · [source](index.html) | Resolving a replacement chain of unknown depth in a single pass of a DATA step; why an in-memory hash and not a merge; sixteen scenarios of imperfect input and the six real defects they expose. |
 
 ## Conventions
