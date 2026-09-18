@@ -1,8 +1,10 @@
 # SAS Pattern Notes
 
+**Live site — <https://jinbeiwang.github.io/sas-pattern-notes/>**
+
 De-identified, reusable write-ups of coding patterns from clinical statistical programming. Each note is a
-single self-contained HTML file — no font CDN, no script CDN, no image files, nothing to install. Open it, or
-serve the repository with GitHub Pages and read it there.
+single self-contained HTML file — no font CDN, no script CDN, no image files, nothing to install. Read it on
+the live site above, or open the file straight from the repository.
 
 Every note answers the same six questions, in the same order:
 
@@ -18,9 +20,9 @@ that can be hidden. Adding or renaming a section needs no edit to any link list.
 
 ## Notes
 
-| Note | Subject |
-|---|---|
-| [Chained kit replacement with the SAS hash object](index.html) | Resolving a replacement chain of unknown depth in a single pass of a DATA step; why an in-memory hash and not a merge; sixteen scenarios of imperfect input and the six real defects they expose. |
+| Note | Read online | Subject |
+|---|---|---|
+| Chained kit replacement with the SAS hash object | [web](https://jinbeiwang.github.io/sas-pattern-notes/) · [source](index.html) | Resolving a replacement chain of unknown depth in a single pass of a DATA step; why an in-memory hash and not a merge; sixteen scenarios of imperfect input and the six real defects they expose. |
 
 ## Conventions
 
