@@ -875,7 +875,7 @@ failure &mdash; an answer that is well formed and wrong, with nothing in the log
 <p class="lede">One self-contained SAS program, the dummy data behind every scenario, and what a passing run prints.</p>
 
 <h3>7.1 The verifier</h3>
-<p><code>kit_chain_check.sas</code> sits at the root of this repository, beside the note. It is Base SAS only
+<p><a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/kit_chain_check.sas"><code>kit_chain_check.sas</code></a> sits at the root of this repository, beside the note. It is Base SAS only
 &mdash; no study macros, no formats, no external libraries, no input files: every row it reads is a
 <code>datalines</code> line or the output of a loop inside the program itself. It runs the four chain steps over
 one scenario at a time and asserts what came out. Five parts, in the order they appear:</p>
@@ -893,7 +893,7 @@ one scenario at a time and asserts what came out. Five parts, in the order they 
   ends with the pass count and the process aborts if any line failed.</li>
 </ul>
 <p>The step it runs is the step in Listing&nbsp;1 to Listing&nbsp;4, and that is checked rather than claimed:
-<code>reference-model/code_fidelity.py</code> compares the verifier's copy against <code>v_ec.sas</code> statement
+<a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/reference-model/code_fidelity.py"><code>reference-model/code_fidelity.py</code></a> compares the verifier's copy against <code>v_ec.sas</code> statement
 by statement, ignoring comments, case and whitespace, and fails if a single statement of the program is missing.
 Two differences are expected and named in the file: the split reads the fixture instead of the study extract, and
 two lines count the probes each row makes, so the probe budget can be asserted rather than assumed.</p>
@@ -959,6 +959,8 @@ exactly 100 probes and a status of <code>UNRESOLVED</code>, so a change that mad
 the check instead of looking like a fix.</p>
 
 <h3>7.4 How to run it</h3>
+<p>The file: <a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/kit_chain_check.sas"><code>kit_chain_check.sas</code></a>, submitted as it stands.</p>
+
 <pre><code>sas kit_chain_check.sas            <span class="cm"># batch: the log carries the report and the exit code</span>
                                    <span class="cm"># interactive: open the file and submit it</span></code></pre>
 <p>A passing run ends the log with one line:</p>
@@ -998,7 +1000,7 @@ program of this size can answer. The cases were chosen from the ways a replaceme
 kit, a cycle, a conflict, a duplicate, a volume case &mdash; and a new shape of bad input means a new fixture
 line, not a re-reading of this note.</p>
 <hr>
-<p class="small">The emulation in <code>reference-model/ec_step_model.py</code> is not a second thing to maintain:
+<p class="small">The emulation in <a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/reference-model/ec_step_model.py"><code>reference-model/ec_step_model.py</code></a> is not a second thing to maintain:
 it reads the fixture, the expected table and the volume parameters straight out of
 <code>kit_chain_check.sas</code>, so it cannot drift from it. It stays in the repository for the two things this
 environment cannot otherwise do: it runs without SAS, and it computes both deduplication counts and the answer
