@@ -650,16 +650,17 @@ listing and the hardened one.</p>
   <span class="t">How this was verified</span>
   <p>There is still no SAS session in the environment where this note is written, so the step has not been compiled
   by SAS. It was therefore re-implemented as an executable reference model and run against synthetic data: one
-  dependency-free Python file (759 lines) that emulates the four DATA step behaviours the outcome actually turns on
+  dependency-free Python file (839 lines) that emulates the four DATA step behaviours the outcome actually turns on
   &mdash; PDV persistence across iterations, the load-time duplicate rule, <code>find()</code> writing payload only
   on a hit, and the 100-probe budget &mdash; together with the split, the collapse, the 200-character limit and the
-  join key.</p>
-  <p>Two runs are reported. First the model was pointed at the <em>original</em> listing and its output compared with
-  the results already published in this note: all 14 published rows reproduce exactly, probe counts included (100
-  probes on each cyclic case, 8 on the eight-link chain). Those numbers were written before the model existed, so
-  agreeing with them is a check on the control flow rather than a restatement of it. Second the same model was run
-  against the hardened step. Every figure in the tables below and in the run output of §5.6 is printed by the
-  harness; none of them was typed by hand.</p>
+  join key. It carries a regression gate: 17 checks, and a non-zero exit code if any of them fails.</p>
+  <p>Three runs are reported. First the model was pointed at the <em>original</em> listing and its output compared
+  with the results already published in this note: all 14 published rows reproduce exactly, probe counts included
+  (100 probes on each cyclic case, 8 on the eight-link chain). Those numbers were written before the model existed, so
+  agreeing with them is a check on the control flow rather than a restatement of it. Then the same model was run
+  against the hardened step as it now stands in the program, and again with the previous <code>by</code> list, which
+  is what isolates the effect of the one line that changed. Every figure in the tables below, and in the run output
+  of §7.3, is printed by the harness; none of it was typed by hand.</p>
   <p><strong>What this does not establish.</strong> Anything that depends on how a particular SAS release behaves at
   the boundary is still cited rather than executed &mdash; the failure of a load declared
   <code>duplicate: "error"</code>, and loading a zero-row table through the <code>dataset:</code> tag (S10). Both
@@ -901,7 +902,9 @@ the step rather than choosing between two conflicting replacements.</p>
 <span class="kw">run</span>;</code></pre>
 <p class="small">Widening the <code>by</code> list is what gives <code>duplicate: "error"</code> something to react
 to. Under the original list this step had already made the key unique, so the declaration's guardrail could never
-fire &mdash; measured, four conflicting rows entered it and three keys came out.</p>
+fire &mdash; measured, four conflicting rows entered it and three keys came out. This is also the one line of these
+three listings that was not yet in the program when the rest of it was rewritten: it is applied now, at
+<code>v_ec.sas</code> line&nbsp;345, and §7.1 maps every line of these listings to the file.</p>
 <pre><code><span class="cm">/* 3. walk the replacement chain -- the changes are additive */</span>
 <span class="kw">data</span> irt_chase;
      <span class="kw">if</span> _n_ = 1 <span class="kw">then do</span>;
@@ -1031,80 +1034,7 @@ documented and cited by the literature named in the reference note; the other tw
 else &mdash; which rows reach which table, what moves the pointer, what gets restored, what the collapse emits
 &mdash; is control flow, and control flow is what a model can settle.</p>
 
-<p>And the printed run, verbatim:</p>
-<pre><code>ROUND 3  the same scenarios with the dedup BY list extended
-S01   row 1  kit=1001   lot=LOT-A    batch=B01    status=RESOLVED    probes=0
-S02   row 1  kit=1002   lot=LOT-B    batch=B02    status=RESOLVED    probes=1
-S03   row 1  kit=1004   lot=LOT-D    batch=B04    status=RESOLVED    probes=3
-S04   row 1  kit=1009   lot=LOT-I    batch=B09    status=RESOLVED    probes=8
-S05   row 1  kit=1001   lot=LOT-A    batch=B01    status=DANGLING    probes=1
-S06   row 1  kit=1002   lot=LOT-B    batch=B02    status=DANGLING    probes=2
-S07   row 1  kit=1003   lot=LOT-C    batch=B03    status=UNRESOLVED  probes=100
-S08   row 1  kit=1002   lot=LOT-S    batch=B-S    status=UNRESOLVED  probes=100
-S09   row 1  kit=1001   lot=LOT-A    batch=B01    status=RESOLVED    probes=0
-S10   row 1  kit=1001   lot=LOT-A    batch=B01    status=DANGLING    probes=1
-S11   row 1  kit=1002   lot=LOT-T1   batch=BT1    status=RESOLVED    probes=1
-S11   row 3  kit=1002   lot=LOT-T2   batch=BT2    status=RESOLVED    probes=1
-S12   row 1  kit=1002   lot=LOT-B    batch=B02    status=RESOLVED    probes=1
-S14   load refused: ERROR: Duplicate key (101, 1002) on hash load
-S17   row 1  kit=1003   lot=LOT-C    batch=B03    status=RESOLVED    probes=2
-
-F3  order dependence of the deduplication
-template  as given -&gt; (1003, 'LOT-T3', 'RESOLVED') | swapped -&gt; (1004, 'LOT-T4', 'RESOLVED')
-extended  as given -&gt; ('REFUSED', '...') | swapped -&gt; ('REFUSED', '...')
-
-effect of the BY list on the two duplicate scenarios
-  S14   template  4 replacement rows -&gt; 3 keys
-  S14   extended  4 replacement rows -&gt; 4 keys   [load refused]
-  S17   template  3 replacement rows -&gt; 2 keys
-  S17   extended  3 replacement rows -&gt; 2 keys
-
-F5  refid capacity under length $200
-digits  fit      refid_len  trunc  formula floor(202/(w+2))
-3       40       200        True   40
-4       33       200        True   33
-5       28       200        True   28
-6       25       200        True   25
-
-F4  cardinality of the collapsed record
-visit carrying 80 kits -&gt; refid holds 33 complete numbers + 1 fragment (200 chars);
-ECLOT=LOT-79, BATCHNUM=B79 (kit 1080)
-
-F6  visit vocabulary on the two sides of the join
-DISCONTINUE        irt-&gt; END OF TREATMENT   crf-&gt; END OF TREATMENT   hit
-DISCONTINUED       irt-&gt; DISCONTINUED       crf-&gt; END OF TREATMENT   MISS
-END OF TREATMENT   irt-&gt; END OF TREATMENT   crf-&gt; END OF TREATMENT   hit
-CYCLE 1 DAY 1      irt-&gt; CYCLE 1 DAY 1      crf-&gt; CYCLE 1 DAY 1      hit
-
-S15 20000 visits, 240000 replacement rows, 240000 hash entries, 11 probes/row,
-    correct 20000/20000, budget exhausted 0
-S13 rows reaching the visit-level feed: 0 (expected 0); replacement rows: 0
-
-REGRESSION GATE
-model reproduces all published rows                        PASS
-S05 dangling on hop 1 -&gt; kit restored                      PASS 1001/LOT-A
-S06 dangling mid-chain -&gt; kit restored to hop-2 kit        PASS
-S07 two-node cycle -&gt; UNRESOLVED                           PASS
-S08 self-loop -&gt; UNRESOLVED                                PASS
-S10 empty lookup table -&gt; DANGLING, kit restored           PASS
-every DANGLING/UNRESOLVED row emits a diagnostic           PASS
-every RESOLVED row emits none                              PASS
-original listing: CAUTION on the three dangling rows, silence on the cycles PASS
-F3 template dedup is still order dependent                 PASS 1003 vs 1004
-F3 extended dedup refuses the conflict                     PASS
-S17 byte-identical replacement rows still collapse         PASS 3 replacement rows -&gt; 2 keys
-S17 gives the same answer under both dedup rules           PASS
-F5 measured capacity matches floor(202/(w+2))              PASS 3:40,4:33,5:28,6:25
-S15 all rows land on the terminal kit                      PASS
-S13 no kit_tyds row never reaches the feed                 PASS
-F6 DISCONTINUED still misses the join                      PASS
-
-17 checks, 17 pass, 0 fail</code></pre>
-<p class="small">To reproduce F3, swap rows <code>S14|2</code> and <code>S14|3</code> in the fixture and run both
-rounds again: the original <code>by</code> list flips its answer from <code>1003</code> to <code>1004</code>, the
-widened one refuses either way. To reproduce F5, run the collapse on a visit carrying more than 33 kits and print
-<code>len(refid)</code>. The gate is the last block of the run, and it exits non-zero on any failure, so the harness
-can be dropped into a check step as it stands.</p>
+<p class="small">The harness's own output is reproduced in full in §7.3, with the dummy data behind every case in §7.2.</p>
 
 <!-- ============================================================ -->
 <h2><span class="n">6</span>Reuse checklist</h2>
@@ -1133,16 +1063,415 @@ can be dropped into a check step as it stands.</p>
   expected values are cheap to maintain and the scenarios are the ones that actually break.</li>
 </ul>
 
+<!-- ============================================================ -->
+<h2><span class="n">7</span>Verification report</h2>
+<p class="lede">What was run, the data each case is built from, and the output that produced every number quoted
+above.</p>
+
+<table>
+  <thead>
+    <tr><th style="width:322px;">What was executed</th><th>Result</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Fidelity &mdash; the model pointed at the original listing and compared with the 14 rows this note had
+        already published, before the model existed</td>
+        <td><span class="num">14 / 14</span> reproduce, probe counts included</td></tr>
+    <tr><td>The hardened step as it now stands in the program, over S01&ndash;S17</td>
+        <td><span class="num">14</span> visit rows: <span class="num">9</span> resolved,
+        <span class="num">5</span> flagged with a WARNING, none silently wrong; S14's load refused</td></tr>
+    <tr><td>The same step under the previous <code>by</code> list</td>
+        <td>exactly one scenario differs, and it is the one the change was for: S14 answers
+        <span class="num">1003 / LOT-T3 / BT3</span>, silently, instead of refusing</td></tr>
+    <tr><td>Code fidelity &mdash; the note's two §5.5 listings compared with the program, statement by
+        statement</td>
+        <td><span class="num">8 + 3 + 25</span> statements; identical on all three blocks</td></tr>
+    <tr><td>Reproducibility &mdash; all three quoted runs re-executed and compared with the text published
+        here, markup aside</td>
+        <td>identical, byte for byte: <span class="num">39</span>,
+        <span class="num">127</span> and <span class="num">45</span> lines</td></tr>
+    <tr><td>Regression gate</td>
+        <td><span class="num">17 checks, 17 pass, 0 fail</span>; process exit code <span class="num">0</span></td></tr>
+  </tbody>
+</table>
+
+<h3>7.1 Where the code in this note comes from</h3>
+<p>The listings in §5.5 are the program as it stands, not a paraphrase of it, and that is checked rather than
+claimed: a second script strips the markup out of those listings, removes comments, folds case, collapses whitespace,
+and compares the result with the file statement by statement. Eight statements on the split, three on the
+deduplication, twenty-five on the walk &mdash; identical on all three. Only string literals are exempt from the
+whitespace pass, so that <code>', '</code> is not read as <code>','</code>. What survives the comparison as a
+difference is therefore comments, which the note renumbers, and two editorial substitutions: the IRT extract is
+written <code>raw.irt_kit</code> here in place of its study-specific name, and <code>BTCH_NUM</code> is written
+<code>btch_num</code> &mdash; SAS treats those two spellings as one variable. Line numbers are from the file the run
+was taken against.</p>
+<p>The same check is what says the hardening is <em>only</em> a hardening. Run against §3's listing and the file it
+yields eleven statements present in the program and absent from the before-listing &mdash; the widened <code>by</code>
+list, the duplicate rule, the status column and the three lines that set and test it &mdash; and seven gone the other
+way: the original's three per-probe <code>put</code> statements, its <code>CAUTION</code> line, its narrow
+<code>by</code> list, its unguarded declaration, and <code>drop i kitnumrp</code>. Nothing else moved. §7.4 lists
+them.</p>
+<table>
+  <thead>
+    <tr><th style="width:322px;">Extraction in this note</th><th>File, and lines</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>§5.5, step 1 &mdash; split the feed</td>
+        <td><code>ec_template/v_ec.sas</code> 331&ndash;338</td></tr>
+    <tr><td>§5.5, step 2 &mdash; deduplicate the replacement rows</td>
+        <td><code>ec_template/v_ec.sas</code> 344&ndash;346</td></tr>
+    <tr><td>§5.5, step 3 &mdash; walk the chain</td>
+        <td><code>ec_template/v_ec.sas</code> 352&ndash;384</td></tr>
+    <tr><td>§3, Listing 1 &mdash; collapse to one row per subject and visit</td>
+        <td><code>ec_template/v_ec.sas</code> 390&ndash;402</td></tr>
+    <tr><td>§3, Listing 2 &mdash; the join back to the clinical records</td>
+        <td><code>ec_template/v_ec.sas</code> 407&ndash;412</td></tr>
+    <tr><td>§3, Listing 2 &mdash; the three identifiers</td>
+        <td><code>ec_template/v_ec.sas</code> 414&ndash;425</td></tr>
+  </tbody>
+</table>
+<p>§3's walk listing is those same lines <em>before</em> the hardening. It is kept as the &ldquo;before&rdquo;
+because the findings are about it, and four textual differences separate it from §5.5: the three per-probe
+<code>put</code> statements are gone; <code>duplicate: "error"</code> is added to the declaration;
+<code>prev_kit</code> and <code>chain_status</code> are added around the loop; and <code>kitnumrp</code> is no longer
+dropped, because the status test after the loop reads it. §5.2 states what each one costs or buys.</p>
+<p>One line was still outstanding when this report was written, because it is the one change the original code could
+not make by itself: the <code>by</code> list of the deduplication step. It is applied now, at line&nbsp;345.</p>
+<pre><code><span class="cm">/* before */</span>     <span class="kw">by</span> scn_num kit_num;
+<span class="cm">/* now    */</span>     <span class="kw">by</span> scn_num kit_num kitnumrp lot_num btch_num;</code></pre>
+<p class="small">The file the run was taken against is 545 lines and <code>18,268</code> bytes,
+<code>md5 8e12384eda53b39b9750a03f39a389a6</code>. The previous version is kept beside it as <code>v_ec.sas.bak-20260920</code>, so the
+one-line change can be checked by comparison rather than from memory.</p>
+
+<h3>7.2 The dummy data, case by case</h3>
+<p>Every case is either a line in one fixture or the output of a named function. Nothing is randomised and nothing is
+seeded, so two runs of the harness print the same numbers. The catalogue below is printed by the harness itself,
+under <code>--cases</code>, rather than transcribed from it &mdash; which is what keeps it in step with the fixture it
+describes.</p>
+<pre><code>==============================================================================
+DUMMY DATA CATALOGUE -- what every case is built from
+==============================================================================
+Fixture rows: 44 lines in RAW, 9 fields each:
+  case|rowid|scn_num|kit_num|lot_num|btch_num|vis_type|kit_tyds|kitnumrp
+  S01   1   S01|1
+  S02   2   S02|1 S02|2
+  S03   4   S03|1 S03|2 S03|3 S03|4
+  S04   9   S04|1 S04|2 S04|3 S04|4 S04|5 S04|6 S04|7 S04|8 S04|9
+  S05   2   S05|1 S05|2
+  S06   2   S06|1 S06|2
+  S07   3   S07|1 S07|2 S07|3
+  S08   2   S08|1 S08|2
+  S09   2   S09|1 S09|2
+  S10   1   S10|1
+  S11   4   S11|1 S11|2 S11|3 S11|4
+  S12   2   S12|1 S12|2
+  S13   1   S13|1
+  S14   5   S14|1 S14|2 S14|3 S14|4 S14|5
+  S17   4   S17|1 S17|2 S17|3 S17|4
+
+Generated rows: no fixture line; built by the named function, so the
+numbers below are the generator's parameters.
+  S15   volume_case(subjects=5000, visits=4, links=11)
+        visits=20000  replacement_rows=240000  hash_entries=240000  probes_per_row=11
+        first visit : scn_num=100000 kit_num=100000 vis_type=CYCLE 1 DAY 1 kitnumrp=100001
+  F5    refid_capacity()
+        4 kit-number widths x 80 kits each, collapsed in one visit
+        w=3 kits 100-179; w=4 kits 1000-1079; w=5 kits 10000-10079; w=6 kits 100000-100079
+  F4    cardinality_case(n_kits=80)
+        80 kits in one visit
+        kits 1001-1080, lot LOT-00..LOT-79, batch B00..B79
+  F6    s16_join_case()
+        4 visit labels tested against the two normalisation rules
+        DISCONTINUE / DISCONTINUED / END OF TREATMENT / CYCLE 1 DAY 1
+
+Reproduce everything:
+  python ec_chain_verify.py           full report, and the gate exit code
+  python ec_chain_verify.py --cases   this catalogue</code></pre>
+<p>And the fixture those references point at, in full &mdash; 44 rows of nine pipe-separated fields,
+taken verbatim from the <code>RAW</code> constant the harness loads:</p>
+<pre><code>S01|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|.
+S02|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S02|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|.
+S03|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S03|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1003
+S03|3|101|1003|LOT-C|B03|KIT REPLACEMENT|KIT|1004
+S03|4|101|1004|LOT-D|B04|KIT REPLACEMENT|KIT|.
+S04|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S04|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1003
+S04|3|101|1003|LOT-C|B03|KIT REPLACEMENT|KIT|1004
+S04|4|101|1004|LOT-D|B04|KIT REPLACEMENT|KIT|1005
+S04|5|101|1005|LOT-E|B05|KIT REPLACEMENT|KIT|1006
+S04|6|101|1006|LOT-F|B06|KIT REPLACEMENT|KIT|1007
+S04|7|101|1007|LOT-G|B07|KIT REPLACEMENT|KIT|1008
+S04|8|101|1008|LOT-H|B08|KIT REPLACEMENT|KIT|1009
+S04|9|101|1009|LOT-I|B09|KIT REPLACEMENT|KIT|.
+S05|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|9001
+S05|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|.
+S06|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S06|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1099
+S07|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S07|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1003
+S07|3|101|1003|LOT-C|B03|KIT REPLACEMENT|KIT|1002
+S08|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S08|2|101|1002|LOT-S|B-S|KIT REPLACEMENT|KIT|1002
+S09|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|.
+S09|2|101|1001|LOT-B|B02|KIT REPLACEMENT|KIT|1002
+S10|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S11|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S11|2|101|1002|LOT-T1|BT1|KIT REPLACEMENT|KIT|.
+S11|3|202|2001|LOT-X|B91|CYCLE 1 DAY 1|KIT|1002
+S11|4|202|1002|LOT-T2|BT2|KIT REPLACEMENT|KIT|.
+S12|1|101|1001|LOT-A|B01|discontinue|KIT|1002
+S12|2|101|1002|LOT-B|B02|kit replacement|KIT|.
+S13|1|101|1001|LOT-A|B01|SCREENING| |.
+S14|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S14|2|101|1002|LOT-B1|B02|KIT REPLACEMENT|KIT|1003
+S14|3|101|1002|LOT-B2|B03|KIT REPLACEMENT|KIT|1004
+S14|4|101|1003|LOT-T3|BT3|KIT REPLACEMENT|KIT|.
+S14|5|101|1004|LOT-T4|BT4|KIT REPLACEMENT|KIT|.
+S17|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
+S17|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1003
+S17|3|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1003
+S17|4|101|1003|LOT-C|B03|KIT REPLACEMENT|KIT|.</code></pre>
+<p class="small">The field order is
+<code>case|rowid|scn_num|kit_num|lot_num|btch_num|vis_type|kit_tyds|kitnumrp</code>. A <code>.</code> in the last
+field is SAS numeric missing, and a blank <code>kit_tyds</code> is the S13 row. The fifteen fixture cases are
+S01&ndash;S14 together with S17 and S13. The other two &mdash; S15, the volume case, and S16, the join case &mdash;
+have no fixture line, and neither do the two collapse-level measurements F4 and F5; for those the catalogue gives the
+generator and its parameters. Expected outcomes for all seventeen scenarios are in §5.1, and what the run actually
+produced is in §7.3.</p>
+
+<h3>7.3 The run, verbatim</h3>
+<p>This is <code>python ec_chain_verify.py --json</code>, unedited. Round 1 is the fidelity check, round 2 is the step
+as it now stands in the program, and round 3 re-runs the same scenarios under the previous <code>by</code> list,
+which is what isolates the effect of the single line in §7.1. The last block is the gate: the process exits
+non-zero when any line in it reads <code>FAIL</code>.</p>
+<pre><code>==============================================================================
+ROUND 1  fidelity -- does the model reproduce what the note published?
+==============================================================================
+scen   rowid  kit_num  lot_num    batch  probes   vs note
+S01    1      1001     LOT-A      B01    0        match
+S02    1      1002     LOT-B      B02    1        match
+S03    1      1004     LOT-D      B04    3        match
+S04    1      1009     LOT-I      B09    8        match
+S05    1      9001     LOT-A      B01    1        match
+S06    1      1099     LOT-B      B02    2        match
+S07    1      1003     LOT-C      B03    100      match
+S08    1      1002     LOT-S      B-S    100      match
+S09    1      1001     LOT-A      B01    0        match
+S10    1      1002     LOT-A      B01    1        match
+S11    1      1002     LOT-T1     BT1    1        match
+S11    3      1002     LOT-T2     BT2    1        match
+S12    1      1002     LOT-B      B02    1        match
+S14    1      1003     LOT-T3     BT3    2        match
+
+published rows reproduced : 14 / 14
+
+==============================================================================
+ROUND 2  the hardened step as it now stands in the template
+==============================================================================
+S01   row 1  kit=1001   lot=LOT-A    batch=B01    status=RESOLVED    probes=0
+S02   row 1  kit=1002   lot=LOT-B    batch=B02    status=RESOLVED    probes=1
+S03   row 1  kit=1004   lot=LOT-D    batch=B04    status=RESOLVED    probes=3
+S04   row 1  kit=1009   lot=LOT-I    batch=B09    status=RESOLVED    probes=8
+S05   row 1  kit=1001   lot=LOT-A    batch=B01    status=DANGLING    probes=1
+S06   row 1  kit=1002   lot=LOT-B    batch=B02    status=DANGLING    probes=2
+S07   row 1  kit=1003   lot=LOT-C    batch=B03    status=UNRESOLVED  probes=100
+S08   row 1  kit=1002   lot=LOT-S    batch=B-S    status=UNRESOLVED  probes=100
+S09   row 1  kit=1001   lot=LOT-A    batch=B01    status=RESOLVED    probes=0
+S10   row 1  kit=1001   lot=LOT-A    batch=B01    status=DANGLING    probes=1
+S11   row 1  kit=1002   lot=LOT-T1   batch=BT1    status=RESOLVED    probes=1
+S11   row 3  kit=1002   lot=LOT-T2   batch=BT2    status=RESOLVED    probes=1
+S12   row 1  kit=1002   lot=LOT-B    batch=B02    status=RESOLVED    probes=1
+S14   load refused: ERROR: Duplicate key (101, 1002) on hash load
+S17   row 1  kit=1003   lot=LOT-C    batch=B03    status=RESOLVED    probes=2
+
+==============================================================================
+ROUND 3  the same scenarios under the previous BY list
+==============================================================================
+S01   row 1  kit=1001   lot=LOT-A    batch=B01    status=RESOLVED    probes=0
+S02   row 1  kit=1002   lot=LOT-B    batch=B02    status=RESOLVED    probes=1
+S03   row 1  kit=1004   lot=LOT-D    batch=B04    status=RESOLVED    probes=3
+S04   row 1  kit=1009   lot=LOT-I    batch=B09    status=RESOLVED    probes=8
+S05   row 1  kit=1001   lot=LOT-A    batch=B01    status=DANGLING    probes=1
+S06   row 1  kit=1002   lot=LOT-B    batch=B02    status=DANGLING    probes=2
+S07   row 1  kit=1003   lot=LOT-C    batch=B03    status=UNRESOLVED  probes=100
+S08   row 1  kit=1002   lot=LOT-S    batch=B-S    status=UNRESOLVED  probes=100
+S09   row 1  kit=1001   lot=LOT-A    batch=B01    status=RESOLVED    probes=0
+S10   row 1  kit=1001   lot=LOT-A    batch=B01    status=DANGLING    probes=1
+S11   row 1  kit=1002   lot=LOT-T1   batch=BT1    status=RESOLVED    probes=1
+S11   row 3  kit=1002   lot=LOT-T2   batch=BT2    status=RESOLVED    probes=1
+S12   row 1  kit=1002   lot=LOT-B    batch=B02    status=RESOLVED    probes=1
+S14   row 1  kit=1003   lot=LOT-T3   batch=BT3    status=RESOLVED    probes=2
+S17   row 1  kit=1003   lot=LOT-C    batch=B03    status=RESOLVED    probes=2
+
+==============================================================================
+F3  order dependence of the deduplication
+==============================================================================
+  legacy
+    as given -&gt; 1003 / LOT-T3 / RESOLVED
+    swapped  -&gt; 1004 / LOT-T4 / RESOLVED
+  template
+    as given -&gt; REFUSED  ERROR: Duplicate key (101, 1002) on hash load
+    swapped  -&gt; REFUSED  ERROR: Duplicate key (101, 1002) on hash load
+
+effect of the BY list on the two duplicate scenarios
+  S14   legacy    4 replacement rows -&gt; 3 keys
+  S14   template  4 replacement rows -&gt; 4 keys   [load refused]
+  S17   legacy    3 replacement rows -&gt; 2 keys
+  S17   template  3 replacement rows -&gt; 2 keys
+
+==============================================================================
+F5  refid capacity under length $200
+==============================================================================
+digits  fit      refid_len  trunc  formula floor(202/(w+2))
+3       40       200        True   40
+4       33       200        True   33
+5       28       200        True   28
+6       25       200        True   25
+
+==============================================================================
+F4  cardinality of the collapsed record
+==============================================================================
+visit carrying 80 kits -&gt; refid holds 33 complete numbers + 1 fragment (200 chars); ECLOT=LOT-79, BATCHNUM=B79 (kit 1080)
+
+==============================================================================
+F6  visit vocabulary on the two sides of the join
+==============================================================================
+DISCONTINUE        irt-&gt; END OF TREATMENT   crf-&gt; END OF TREATMENT   hit
+DISCONTINUED       irt-&gt; DISCONTINUED       crf-&gt; END OF TREATMENT   MISS
+END OF TREATMENT   irt-&gt; END OF TREATMENT   crf-&gt; END OF TREATMENT   hit
+CYCLE 1 DAY 1      irt-&gt; CYCLE 1 DAY 1      crf-&gt; CYCLE 1 DAY 1      hit
+
+==============================================================================
+S15 volume   /   S13 structural
+==============================================================================
+S15 20000 visits, 240000 replacement rows, 240000 hash entries, 11 probes/row, correct 20000/20000, budget exhausted 0
+S13 rows reaching the visit-level feed: 0 (expected 0); replacement rows: 0
+
+==============================================================================
+REGRESSION GATE
+==============================================================================
+model reproduces all published rows                        PASS 
+S05 dangling on hop 1 -&gt; kit restored                      PASS 1001/LOT-A
+S06 dangling mid-chain -&gt; kit restored to hop-2 kit        PASS 
+S07 two-node cycle -&gt; UNRESOLVED                           PASS 
+S08 self-loop -&gt; UNRESOLVED                                PASS 
+S10 empty lookup table -&gt; DANGLING, kit restored           PASS 
+every DANGLING/UNRESOLVED row emits a diagnostic           PASS 
+every RESOLVED row emits none                              PASS 
+original listing: CAUTION on the three dangling rows, silence on the cycles PASS 
+F3 the previous BY list is still order dependent           PASS 1003 vs 1004
+F3 the widened BY list refuses the conflict                PASS 
+S17 byte-identical replacement rows still collapse         PASS 3 replacement rows -&gt; 2 keys
+S17 gives the same answer under both dedup rules           PASS the wider BY list only changes the outcome for conflicts
+F5 measured capacity matches floor(202/(w+2))              PASS 3:40,4:33,5:28,6:25
+S15 all rows land on the terminal kit                      PASS 
+S13 no kit_tyds row never reaches the feed                 PASS 
+F6 DISCONTINUED still misses the join                      PASS 
+
+17 checks, 17 pass, 0 fail
+
+JSON summary written to ec_chain_verify.json</code></pre>
+
+<h3>7.4 The code-fidelity check</h3>
+<p>The script behind §7.1, on its own. It needs the program file, which lives outside this repository, so it takes
+the path as an argument and only defaults to the layout this note was written in; the recorded run below is from that
+default, with the note in the repository root.</p>
+<pre><code>found 12 code blocks in the note
+of which 2 are the section 5.5 listings
+
+5.5 split        vs prog 331-338
+  note 8 statements, file 8 statements
+  -&gt; identical, statement for statement
+
+5.5 deduplicate  vs prog 344-346
+  note 3 statements, file 3 statements
+  -&gt; identical, statement for statement
+
+5.5 walk         vs prog 352-384
+  note 25 statements, file 25 statements
+  -&gt; identical, statement for statement
+
+==========================================================================
+the hardening, as the difference between the two listings
+==========================================================================
+
+added -- 11 statement(s) in the program, absent from the before-listing:
+  + by scn_num kit_num kitnumrp lot_num btch_num;
+  + declare hash h(dataset: "irt_rp",duplicate: "error");
+  + length chain_status $10;
+  + prev_kit=kit_num;
+  + chain_status='';
+  + chain_status='DANGLING';
+  + kit_num=prev_kit;
+  + prev_kit=kit_num;
+  + if chain_status='' then chain_status=ifc(missing(kitnumrp),'RESOLVED','UNRESOLVED');
+  + if chain_status ne 'RESOLVED' then put "WARNING: kit chain " chain_status=scn_num=vis_type=kit_tyds=kit_num=;
+  + drop i rc prev_kit;
+
+removed -- 7 statement(s) in the before-listing, gone from the program:
+  - by scn_num kit_num;
+  - declare hash h(dataset: "irt_rp");
+  - put "Start: " i=scn_num=kit_num=kitnumrp=;
+  - put "Assign: " i=scn_num=kit_num=kitnumrp=;
+  - put "find: " i=scn_num=kit_num=kitnumrp=rc=;
+  - put "CAUTION: replacement kit not found...";
+  - drop i kitnumrp;
+
+-&gt; the removals are exactly the documented set
+
+==========================================================================
+code fidelity: PASS</code></pre>
+<p class="small">The two lists at the end are the whole of the hardening, and they are produced by diffing the two
+listings rather than by describing them. A third list &mdash; statements the two listings share &mdash; is not printed,
+because it is the point: everything else is common to both. If a later edit moves a statement in the program without
+moving this note with it, the check fails and names the statement.</p>
+
+<h3>7.5 What the harness does not settle</h3>
+<p>Three behaviours are asserted by the model rather than observed in a SAS session. Each is one log line away from
+being settled whenever a session is available, and each is worth recording either way.</p>
+<ol>
+  <li>That a load declared <code>duplicate: "error"</code> stops the DATA step and produces no output at all, rather
+  than warning and emitting a partial table. Scenario S14 and finding F3 rest on this: the refusal is the intended
+  behaviour, not a measured one.</li>
+  <li>That a zero-row table can be loaded through the <code>dataset:</code> tag, which is how S10 reaches its
+  dangling pointer. The model resolves it as a miss, which is what the semantics require.</li>
+  <li>That the <code>while</code> test of <code>do i = 1 to 100 while (&hellip;)</code> is evaluated before the first
+  iteration as well as before the rest. That is why a base row whose pointer is already missing performs no probe at
+  all &mdash; S01 and S09.</li>
+</ol>
+<p>S16 is in the same table but is of a different kind: the chain step is not where that defect lives, so the harness
+exercises the two visit mappings directly and compares them rather than routing it through the walk.</p>
+
+<h3>7.6 Re-running it</h3>
+<p>All three scripts are dependency-free Python 3 files kept in <code>reference-model/</code> beside this note. From
+the directory that holds them, with the program two levels up as <code>ec_template/v_ec.sas</code>:</p>
+<pre><code>python ec_chain_verify.py            <span class="cm"># full report, and the gate's exit code</span>
+python ec_chain_verify.py --json     <span class="cm"># the same, plus ec_chain_verify.json</span>
+python ec_chain_verify.py --cases    <span class="cm"># the dummy-data catalogue of §7.2 on its own</span>
+python code_fidelity.py              <span class="cm"># this note's listings against the program</span>
+python code_fidelity.py --sas path/to/program.sas   <span class="cm"># if it lives elsewhere</span>
+python check_recorded_runs.py        <span class="cm"># are the runs printed here still live?</span></code></pre>
+<p class="small">The last of the three is the one to run after any edit. It re-executes each script, strips the
+markup out of each quoted block and compares the two, so it fails if a run in this section stops being reproducible
+&mdash; whether because a script changed or because the note did. Exit code 0 means all 17 gate lines
+passed, every listing matched, and every quoted run is still live. All three take the note path as an argument. Any
+change to the split, the key definition or the collapse should be followed by a run of the gate before the change is
+believed, and any change to the program by a run of the fidelity check before this note is believed to describe
+it.</p>
+<p class="small">The three are <code>ec_chain_verify.py</code>, 839 lines;
+<code>code_fidelity.py</code>, 223 lines (<code>md5 1220d799c7673051ad9b1044f93d0994</code>); and
+<code>check_recorded_runs.py</code>, 95 lines (<code>md5 be1030095a787d100cc317657f86a69c</code>).</p>
+
 <footer>
-  Seventeen scenarios were executed against a dependency-free reference model of the step (759 lines), on both the
-  original listing and the hardened one; 17 of 17 checks pass, and the run quoted in §5.6 is the harness's own
-  output. SAS was still not available in this environment, so nothing here is a SAS execution: behaviours
-  attributed to SAS are cited to the Component Objects reference for the hash object, the FIND method
-  documentation, and the PROC SORT statement documentation on NODUPKEY. The three behaviours the model has to
-  assume rather than observe &mdash; a missed <code>find()</code> leaving the PDV alone, a
-  <code>duplicate: "error"</code> load stopping the step, and loading a zero-row table through the
-  <code>dataset:</code> tag &mdash; are flagged as unverified in §5.1. All data is synthetic: study identifiers
-  are the placeholder <code>NNNN</code>, and no subject-level information is present.
+  Seventeen scenarios were executed against a dependency-free reference model of the step (839 lines), on the original
+  listing, on the hardened step as it now stands in the program, and on the same step under the previous
+  <code>by</code> list; 17 of 17 checks pass, the run is reproduced in full in §7.3, and the dummy data behind
+  every case is in §7.2. SAS was still not available in this environment, so nothing here is a SAS execution:
+  behaviours attributed to SAS are cited to the Component Objects reference for the hash object, the FIND method
+  documentation, and the PROC SORT statement documentation on NODUPKEY, and the three behaviours the model has to
+  assume rather than observe are listed in §7.4. All data is synthetic: study identifiers are placeholders, no
+  subject-level information is present, and the IRT extract is referred to by a generic name.
 </footer>
 
 </div>

@@ -38,6 +38,7 @@ explicitly, because each one is load-bearing for the result:
 
 Usage:  python ec_chain_verify.py            # run all rounds, print the report
         python ec_chain_verify.py --json     # same, plus a JSON summary
+        python ec_chain_verify.py --cases    # the dummy-data catalogue alone
 """
 
 import json
@@ -130,8 +131,18 @@ def trunc(s, n):
 KEEP = ("scn_num", "kit_tyds", "kit_num", "lot_num", "vis_type",
         "btch_num", "kitnumrp")
 
+# The two deduplication rules.
+#   DEDUP_TEMPLATE is what the program now uses. The BY list carries the payload
+#     as well, so only byte-identical rows collapse and a genuine conflict
+#     survives this step and reaches the load, where duplicate:"error" refuses it.
+#   DEDUP_LEGACY is the list the original listing had. It stays in the harness so
+#     that the F3 evidence -- a silent flip from 1003 to 1004 -- remains
+#     reproducible instead of becoming a claim in prose.
+DEDUP_LEGACY = ("scn_num", "kit_num")
+DEDUP_TEMPLATE = ("scn_num", "kit_num", "kitnumrp", "lot_num", "btch_num")
 
-def step_split(raw, dedup_by=("scn_num", "kit_num")):
+
+def step_split(raw, dedup_by=DEDUP_LEGACY):
     """data irt_base irt_rp; ...  followed by  proc sort nodupkey."""
 
     base, rp = [], []
@@ -393,8 +404,8 @@ def round2_and_3():
     raw = parse_raw(RAW)
     result = {}
     for label, dedup_by in (
-            ("template", ("scn_num", "kit_num")),
-            ("extended", ("scn_num", "kit_num", "kitnumrp", "lot_num", "btch_num"))):
+            ("legacy", DEDUP_LEGACY),
+            ("template", DEDUP_TEMPLATE)):
         per = {}
         for scen in sorted({r["scenario"] for r in raw}):
             sub = [r for r in raw if r["scenario"] == scen]
@@ -528,10 +539,75 @@ def structure_case_s13():
 
 
 # ----------------------------------------------------------------------------
+# the dummy data, case by case
+# ----------------------------------------------------------------------------
+def dummy_catalogue():
+    """Every dummy-data case, with the generator that produces it."""
+
+    raw = parse_raw(RAW)
+    fixture = []
+    for scen in sorted({r["scenario"] for r in raw}):
+        refs = ["%s|%d" % (r["scenario"], r["rowid"])
+                for r in raw if r["scenario"] == scen]
+        fixture.append((scen, refs))
+
+    vol = volume_case()
+    card = cardinality_case()
+    generated = [
+        ("S15", "volume_case(subjects=5000, visits=4, links=11)",
+         "visits=%d  replacement_rows=%d  hash_entries=%d  probes_per_row=%d"
+         % (vol["visits"], vol["replacement_rows"], vol["entries_loaded"],
+            vol["probes_per_row"]),
+         "first visit : scn_num=100000 kit_num=100000 "
+         "vis_type=CYCLE 1 DAY 1 kitnumrp=100001"),
+        ("F5", "refid_capacity()",
+         "4 kit-number widths x 80 kits each, collapsed in one visit",
+         "w=3 kits 100-179; w=4 kits 1000-1079; w=5 kits 10000-10079; "
+         "w=6 kits 100000-100079"),
+        ("F4", "cardinality_case(n_kits=80)",
+         "%d kits in one visit" % card["kits_in_visit"],
+         "kits 1001-1080, lot LOT-00..LOT-79, batch B00..B79"),
+        ("F6", "s16_join_case()",
+         "4 visit labels tested against the two normalisation rules",
+         "DISCONTINUE / DISCONTINUED / END OF TREATMENT / CYCLE 1 DAY 1"),
+    ]
+    return fixture, generated
+
+
+def print_catalogue():
+    fixture, generated = dummy_catalogue()
+    bar = "=" * 78
+    print(bar)
+    print("DUMMY DATA CATALOGUE -- what every case is built from")
+    print(bar)
+    print("Fixture rows: %d lines in RAW, %d fields each:"
+          % (sum(len(refs) for _s, refs in fixture),
+             len("case rowid scn_num kit_num lot_num btch_num vis_type "
+                 "kit_tyds kitnumrp".split())))
+    print("  case|rowid|scn_num|kit_num|lot_num|btch_num|vis_type|kit_tyds|kitnumrp")
+    for scen, refs in fixture:
+        print("  %-5s %-3d %s" % (scen, len(refs), " ".join(refs)))
+    print()
+    print("Generated rows: no fixture line; built by the named function, so the")
+    print("numbers below are the generator's parameters.")
+    for case, gen, shape, sample in generated:
+        print("  %-5s %s" % (case, gen))
+        print("        %s" % shape)
+        print("        %s" % sample)
+    print()
+    print("Reproduce everything:")
+    print("  python ec_chain_verify.py           full report, and the gate exit code")
+    print("  python ec_chain_verify.py --cases   this catalogue")
+    return 0
+
+
+# ----------------------------------------------------------------------------
 # report
 # ----------------------------------------------------------------------------
 def main():
     as_json = "--json" in sys.argv
+    if "--cases" in sys.argv:
+        return print_catalogue()
     summary = {}
 
     print("=" * 78)
@@ -550,7 +626,7 @@ def main():
 
     print()
     print("=" * 78)
-    print("ROUND 2  hardened step as applied in the template")
+    print("ROUND 2  the hardened step as it now stands in the template")
     print("=" * 78)
     res = round2_and_3()
     order = sorted({r["scenario"] for r in parse_raw(RAW)})
@@ -572,10 +648,10 @@ def main():
 
     print()
     print("=" * 78)
-    print("ROUND 3  the same scenarios with the dedup BY list extended")
+    print("ROUND 3  the same scenarios under the previous BY list")
     print("=" * 78)
     for scen in order:
-        t = res["extended"][scen]
+        t = res["legacy"][scen]
         if t["load_refused"]:
             print("%-5s load refused: %s" % (scen, t["load_refused"]))
             continue
@@ -583,37 +659,42 @@ def main():
             print("%-5s row %d  kit=%-6s lot=%-8s batch=%-6s status=%-11s probes=%d"
                   % (scen, r["rowid"], best(r["kit_num"]), r["lot_num"],
                      r["btch_num"], r["chain_status"], r["probes"]))
-    summary["round3"] = {s: {"load_refused": res["extended"][s]["load_refused"],
+    summary["round3"] = {s: {"load_refused": res["legacy"][s]["load_refused"],
                              "rows": [{k: v for k, v in r.items() if k in
                                        ("rowid", "kit_num", "lot_num", "btch_num",
                                         "chain_status", "probes")}
-                                      for r in res["extended"][s]["rows"]]}
+                                      for r in res["legacy"][s]["rows"]]}
                          for s in order}
 
     print()
     print("=" * 78)
     print("F3  order dependence of the deduplication")
     print("=" * 78)
-    for label, by in (("template", ("scn_num", "kit_num")),
-                      ("extended", ("scn_num", "kit_num", "kitnumrp",
-                                    "lot_num", "btch_num"))):
+    for label, by in (("legacy", DEDUP_LEGACY),
+                      ("template", DEDUP_TEMPLATE)):
         o = s14_order_test(by)
-        print("%-9s as given -> %-28s | swapped -> %s"
-              % (label, str(o["as given"]), str(o["swapped"])))
+        print("  %s" % label)
+        for variant in ("as given", "swapped"):
+            v = o[variant]
+            # a refusal has no kit; print the message instead of a tuple of
+            # placeholders, and keep every line inside 100 columns
+            if v[0] == "REFUSED":
+                print("    %-8s -> %s  %s" % (variant, v[0], v[1]))
+            else:
+                print("    %-8s -> %s / %s / %s" % (variant, v[0], v[1], v[2]))
     print()
     print("effect of the BY list on the two duplicate scenarios")
     for scen in ("S14", "S17"):
-        for label in ("template", "extended"):
+        for label in ("legacy", "template"):
             d = res[label][scen]
             print("  %-5s %-9s %d replacement rows -> %d keys%s"
                   % (scen, label, d["n_rp_raw"], d["n_dedup"],
                      "   [load refused]" if d["load_refused"] else ""))
     summary["f3"] = {
+        "legacy": {k: list(map(str, v)) for k, v in
+                   s14_order_test(DEDUP_LEGACY).items()},
         "template": {k: list(map(str, v)) for k, v in
-                     s14_order_test(("scn_num", "kit_num")).items()},
-        "extended": {k: list(map(str, v)) for k, v in
-                     s14_order_test(("scn_num", "kit_num", "kitnumrp",
-                                     "lot_num", "btch_num")).items()},
+                     s14_order_test(DEDUP_TEMPLATE).items()},
     }
 
     print()
@@ -711,24 +792,23 @@ def main():
         all(orig[s] == 1 for s in ("S05", "S06", "S10"))
         and all(orig[s] == 0 for s in ("S07", "S08")))
 
-    o_tpl = s14_order_test(("scn_num", "kit_num"))
-    chk("F3 template dedup is still order dependent",
-        o_tpl["as given"][0] != o_tpl["swapped"][0],
+    o_leg = s14_order_test(DEDUP_LEGACY)
+    chk("F3 the previous BY list is still order dependent",
+        o_leg["as given"][0] != o_leg["swapped"][0],
         "1003 vs 1004")
-    o_ext = s14_order_test(("scn_num", "kit_num", "kitnumrp",
-                            "lot_num", "btch_num"))
-    chk("F3 extended dedup refuses the conflict",
-        o_ext["as given"][0] == "REFUSED" and o_ext["swapped"][0] == "REFUSED")
+    o_tpl = s14_order_test(DEDUP_TEMPLATE)
+    chk("F3 the widened BY list refuses the conflict",
+        o_tpl["as given"][0] == "REFUSED" and o_tpl["swapped"][0] == "REFUSED")
     chk("S17 byte-identical replacement rows still collapse",
-        (res["extended"]["S17"]["rows"][0]["kit_num"] == 1003
-         and res["extended"]["S17"]["rows"][0]["chain_status"] == "RESOLVED"
-         and res["extended"]["S17"]["load"]["entries"] == 2),
+        (res["template"]["S17"]["rows"][0]["kit_num"] == 1003
+         and res["template"]["S17"]["rows"][0]["chain_status"] == "RESOLVED"
+         and res["template"]["S17"]["load"]["entries"] == 2),
         "%d replacement rows -> %d keys"
-        % (res["extended"]["S17"]["n_rp_raw"],
-           res["extended"]["S17"]["n_dedup"]))
+        % (res["template"]["S17"]["n_rp_raw"],
+           res["template"]["S17"]["n_dedup"]))
     chk("S17 gives the same answer under both dedup rules",
         res["template"]["S17"]["rows"][0]["kit_num"] == 1003
-        and res["extended"]["S17"]["rows"][0]["kit_num"] == 1003,
+        and res["legacy"]["S17"]["rows"][0]["kit_num"] == 1003,
         "the wider BY list only changes the outcome for conflicts")
 
     chk("F5 measured capacity matches floor(202/(w+2))",
