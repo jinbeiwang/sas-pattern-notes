@@ -26,7 +26,14 @@ Each note except the first is served under the site root at its own filename, fo
 | Note | Read online | Subject |
 |---|---|---|
 | The SAS hash object: definition, lookup, load and output | [web](https://jinbeiwang.github.io/sas-pattern-notes/sas-hash-clinical-note.html) · [source](sas-hash-clinical-note.html) | Full syntax skeleton (declare → definekey → definedata → definedone → find / output), six argument tags, the method set and its return codes; four clinical shapes (screening and population flags, horizontal ADSL→ADLB merge, cross-visit baseline retrieval, AE×CM many-to-many), written in Chinese. Eight pitfalls with sources — duplicate keys kept silently, dataset loaded at `definedone()` rather than `declare`, data variables retaining their previous value when `find()` misses, `output()` not writing keys, `key:` type agreement. |
-| Chained kit replacement with the SAS hash object | [web](https://jinbeiwang.github.io/sas-pattern-notes/) · [source](index.html) | Resolving a replacement chain of unknown depth in a single pass of a DATA step; why an in-memory hash and not a merge; sixteen scenarios of imperfect input and the six real defects they expose. |
+| Chained kit replacement with the SAS hash object | [web](https://jinbeiwang.github.io/sas-pattern-notes/) · [source](index.html) | Resolving a replacement chain of unknown depth in a single pass of a DATA step; why an in-memory hash and not a merge; seventeen scenarios of imperfect input, executed against a reference model of the step, and the six defects they expose — including the one that survives the obvious fix, where `duplicate: "error"` turns out to be inert as long as the deduplication upstream still hides the conflict. |
+
+## Reference model
+
+`reference-model/ec_chain_verify.py` is an executable model of the chain step in that last note: no
+dependencies, no SAS, `python3 reference-model/ec_chain_verify.py` runs seventeen scenarios against both the
+original and the hardened listing and exits non-zero if any check fails. It exists because SAS is not always
+available to the person writing the note, and "the reasoning is sound" is a weaker claim than "here is the run".
 
 ## Conventions
 
@@ -36,4 +43,8 @@ Each note except the first is served under the site root at its own filename, fo
   can be lifted into another program without invalidating every reference to it.
 - Behaviour attributed to the language rather than observed in the code is cited to the vendor documentation.
 - Where the analysis was static — no SAS session available — the note says so, in the masthead and in the
-  footer, instead of implying that it was measured.
+  footer, instead of implying that it was measured. Where the logic could be executed without SAS, the note
+  reports the executable model, quotes its output, and states which few behaviours the model had to assume
+  rather than observe.
+- Every behaviour the note claims is traceable to something a reader can re-run: a documented statement, a
+  published paper, a scenario identifier, or the harness in `reference-model/`.
