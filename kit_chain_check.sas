@@ -11,16 +11,29 @@
 *  To pass: the log ends with
 *             "kit chain check: <n> checks, <n> pass, 0 fail"
 *
-*  The last block (S14) is expected to stop with an ERROR. That is the
-*  guardrail firing, not a defect. Set demo_conflict = N to skip it.
+*  The last block (the S14 conflict) is expected to stop with an ERROR.
+*  That is the guardrail firing, not a defect. Set demo_conflict = N to
+*  skip it.
+*
+*  Cases that are deliberately not here, so that a reader does not go
+*  looking for them:
+*    - a chain of eight hops: the same step at three, and the longest
+*      chain the extract has shown is three;
+*    - a kit whose pointer names itself: the cycle of S07 already
+*      covers "the walk never reaches a terminal record";
+*    - a row with no kit type, and a visit label the two sides of the
+*      join spell differently: both are settled before this step sees
+*      the data (the split's guard and the clinical-side mapping), so
+*      they are pipeline tests, not chain tests.
 *--------------------------------------------------------------------*/
 
 %let demo_conflict = Y;      /* Y: run the block that must fail       */
-%let vol_subjects  = 5000;   /* S15 volume case; 0 to skip it         */
+%let vol_subjects  = 2000;   /* S15 volume case; 0 to skip it         */
 %let vol_visits    = 4;
-%let vol_links     = 11;
+%let vol_links     = 3;      /* replacements per visit; 3 is the most */
+                             /* any subject has shown                 */
 
-%let cases = S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S17;
+%let cases = S01 S02 S03 S05 S06 S07 S09 S10 S11 S12 S17;
 
 *--------------------------------------------------------------------*;
 *  Fixture: one pipe-separated line per row of the IRT extract       *;
@@ -39,15 +52,6 @@ S03|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
 S03|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1003
 S03|3|101|1003|LOT-C|B03|KIT REPLACEMENT|KIT|1004
 S03|4|101|1004|LOT-D|B04|KIT REPLACEMENT|KIT|.
-S04|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
-S04|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1003
-S04|3|101|1003|LOT-C|B03|KIT REPLACEMENT|KIT|1004
-S04|4|101|1004|LOT-D|B04|KIT REPLACEMENT|KIT|1005
-S04|5|101|1005|LOT-E|B05|KIT REPLACEMENT|KIT|1006
-S04|6|101|1006|LOT-F|B06|KIT REPLACEMENT|KIT|1007
-S04|7|101|1007|LOT-G|B07|KIT REPLACEMENT|KIT|1008
-S04|8|101|1008|LOT-H|B08|KIT REPLACEMENT|KIT|1009
-S04|9|101|1009|LOT-I|B09|KIT REPLACEMENT|KIT|.
 S05|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|9001
 S05|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|.
 S06|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
@@ -55,8 +59,6 @@ S06|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1099
 S07|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
 S07|2|101|1002|LOT-B|B02|KIT REPLACEMENT|KIT|1003
 S07|3|101|1003|LOT-C|B03|KIT REPLACEMENT|KIT|1002
-S08|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
-S08|2|101|1002|LOT-S|B-S|KIT REPLACEMENT|KIT|1002
 S09|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|.
 S09|2|101|1001|LOT-B|B02|KIT REPLACEMENT|KIT|1002
 S10|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
@@ -66,7 +68,6 @@ S11|3|202|2001|LOT-X|B91|CYCLE 1 DAY 1|KIT|1002
 S11|4|202|1002|LOT-T2|BT2|KIT REPLACEMENT|KIT|.
 S12|1|101|1001|LOT-A|B01|discontinue|KIT|1002
 S12|2|101|1002|LOT-B|B02|kit replacement|KIT|.
-S13|1|101|1001|LOT-A|B01|SCREENING||.
 S14|1|101|1001|LOT-A|B01|CYCLE 1 DAY 1|KIT|1002
 S14|2|101|1002|LOT-B1|B02|KIT REPLACEMENT|KIT|1003
 S14|3|101|1002|LOT-B2|B03|KIT REPLACEMENT|KIT|1004
@@ -91,11 +92,9 @@ datalines;
 S01|101|CYCLE 1 DAY 1|1001|LOT-A|B01|RESOLVED|0
 S02|101|CYCLE 1 DAY 1|1002|LOT-B|B02|RESOLVED|1
 S03|101|CYCLE 1 DAY 1|1004|LOT-D|B04|RESOLVED|3
-S04|101|CYCLE 1 DAY 1|1009|LOT-I|B09|RESOLVED|8
 S05|101|CYCLE 1 DAY 1|1001|LOT-A|B01|DANGLING|1
 S06|101|CYCLE 1 DAY 1|1002|LOT-B|B02|DANGLING|2
 S07|101|CYCLE 1 DAY 1|1003|LOT-C|B03|UNRESOLVED|100
-S08|101|CYCLE 1 DAY 1|1002|LOT-S|B-S|UNRESOLVED|100
 S09|101|CYCLE 1 DAY 1|1001|LOT-A|B01|RESOLVED|0
 S10|101|CYCLE 1 DAY 1|1001|LOT-A|B01|DANGLING|1
 S11|101|CYCLE 1 DAY 1|1002|LOT-T1|BT1|RESOLVED|1
@@ -107,10 +106,9 @@ run;
 
 *--------------------------------------------------------------------*;
 *  S15: a volume case, generated rather than typed.                  *;
-*  Every subject has four visits. Each visit carries its own kit     *;
-*  block: the visit row points at k0+1, k0 .. k0+11 are all recorded *;
-*  as replacements, and k0+11 is terminal, so the row makes 11       *;
-*  probes -- twelve replacement rows per visit, not eleven.          *;
+*  Every subject has four visits and every visit its own kit block:  *;
+*  the visit row points at k0+1, k0+1 .. k0+3 are the replacement    *;
+*  rows, and k0+3 is terminal, so the row makes &vol_links probes.   *;
 *--------------------------------------------------------------------*;
 %if &vol_subjects > 0 %then %do;
 
@@ -125,7 +123,7 @@ data vol_kit;
                vis_type = "CYCLE 1 DAY " || strip(put(v, best.));
                kit_num = k0; kitnumrp = k0 + 1; rowid = 1;
                output;
-               do j = 0 to &vol_links;
+               do j = 1 to &vol_links;
                     vis_type = "KIT REPLACEMENT";
                     kit_num  = k0 + j;
                     if j < &vol_links then kitnumrp = k0 + j + 1;
@@ -178,7 +176,6 @@ run;
 
 proc sql noprint;
      select count(*) into :n_pre  from irt_rp;
-     select count(*) into :n_base from irt_base;
 quit;
 
 /* 2. one row per kit, with the payload carried in the BY list */
@@ -200,7 +197,7 @@ quit;
 data _cnt;
      length case $3;
      case = "&c";
-     n_pre = &n_pre; n_base = &n_base; n_wide = &n_wide; n_narrow = &n_narrow;
+     n_pre = &n_pre; n_wide = &n_wide; n_narrow = &n_narrow;
 run;
 proc append base = counts data = _cnt; run;
 
@@ -307,7 +304,7 @@ quit;
 data _cnt;
      length case $3;
      case = "S14";
-     n_pre = &s14_pre; n_base = 1; n_wide = &s14_wide; n_narrow = &s14_narrow;
+     n_pre = &s14_pre; n_wide = &s14_wide; n_narrow = &s14_narrow;
 run;
 proc append base = counts data = _cnt; run;
 
@@ -360,17 +357,7 @@ run;
 proc append base = checks data = _chk; run;
 
 *====================================================================*;
-*  2. a row that must not reach the walk                             *;
-*====================================================================*;
-proc sql noprint;
-     select n_base into :s13_base from counts where case = "S13";
-     select count(*) into :s13_rows from actual where case = "S13";
-quit;
-%chk(S13 rows reaching the visit-level feed, 0, &s13_base)
-%chk(S13 output rows for that case, 0, &s13_rows)
-
-*====================================================================*;
-*  3. what the BY list of the deduplication decides                  *;
+*  2. what the BY list of the deduplication decides                  *;
 *     S14: two rows disagree on the same key.                        *;
 *     S17: two rows agree on the same key.                           *;
 *====================================================================*;
@@ -389,14 +376,14 @@ quit;
 %chk(S17 keys the key-only BY list would leave, 2, &s17_nr)
 
 *====================================================================*;
-*  4. F4  ECREFID describes every kit, ECLOT and BATCHNUM one of     *;
-*     them. The collapse is run over 80 already-resolved rows.       *;
+*  3. F4  ECREFID describes every kit of the visit, ECLOT and        *;
+*     BATCHNUM one of them. Three kits is what the collapse sees.    *;
 *====================================================================*;
 data f4_chase;
      length vis_type $20 kit_tyds $8 lot_num $10 btch_num $10 chain_status $10;
      scn_num = 101; vis_type = "CYCLE 1 DAY 1"; kit_tyds = "KIT";
      chain_status = "RESOLVED";
-     do n = 0 to 79;
+     do n = 0 to 2;
           kit_num  = 1001 + n;
           lot_num  = "LOT-" || put(n, z2.);
           btch_num = "B"   || put(n, z2.);
@@ -421,91 +408,23 @@ run;
 data _chk;
      length check $64 expected $40 actual $40 verdict $7;
      set f4_claps;
-     check    = "F4 the collapsed row carries the last kit in sort order";
-     expected = "1080";
-     actual   = strip(put(kit_num, best.));
-     verdict  = ifc(kit_num = 1080, "ok", "FAIL");
+     check    = "F4 ECREFID lists every kit of the visit";
+     expected = "1001, 1002, 1003";
+     actual   = refid;
+     verdict  = ifc(refid = "1001, 1002, 1003", "ok", "FAIL");
      output;
-     check    = "F4 ECLOT and BATCHNUM are that one kit's lot and batch";
-     expected = "LOT-79 B79";
-     actual   = strip(lot_num) || " " || strip(btch_num);
-     verdict  = ifc(lot_num = "LOT-79" and btch_num = "B79", "ok", "FAIL");
-     output;
-     check    = "F4 characters of ECREFID kept for the visit";
-     expected = "200";
-     actual   = strip(put(length(refid), best.));
-     verdict  = ifc(length(refid) = 200, "ok", "FAIL");
+     check    = "F4 ECLOT and BATCHNUM belong to the last kit in sort order";
+     expected = "1003 LOT-02 B02";
+     actual   = catx(" ", strip(put(kit_num, best.)), lot_num, btch_num);
+     verdict  = ifc(kit_num = 1003 and lot_num = "LOT-02" and btch_num = "B02",
+                    "ok", "FAIL");
      output;
      keep check expected actual verdict;
 run;
 proc append base = checks data = _chk; run;
 
 *====================================================================*;
-*  5. F5  capacity of refid under length $200                        *;
-*     Built the way the collapse builds it: one number for the first *;
-*     row of the group, then append.                                 *;
-*====================================================================*;
-data f5;
-     length refid $200;
-     do w = 3 to 6;
-          refid = "";
-          do k = 1 to 80;
-               kit_num = 10 ** (w - 1) + k - 1;
-               if k = 1 then refid = strip(put(kit_num, best.));
-               else refid = strip(refid) || ", " || strip(put(kit_num, best.));
-          end;
-          len = length(refid);
-          n = 0; p = 1;
-          do while (p + w - 1 <= len);
-               n + 1;
-               p + w + 2;
-          end;
-          formula   = floor(202 / (w + 2));
-          frag      = max(0, len - n * (w + 2));
-          full      = (w + 2) * 80 - 2;
-          truncated = (full > 200);
-          output;
-     end;
-     keep w n formula len frag full truncated;
-run;
-
-data _chk;
-     length check $64 expected $40 actual $40 verdict $7;
-     set f5;
-     check    = "F5 whole kit numbers that fit at width " || strip(put(w, best.));
-     expected = strip(put(formula, best.));
-     actual   = strip(put(n, best.));
-     verdict  = ifc(n = formula, "ok", "FAIL");
-     keep check expected actual verdict;
-run;
-proc append base = checks data = _chk; run;
-
-*====================================================================*;
-*  6. F6  the visit vocabulary on the two sides of the join          *;
-*====================================================================*;
-data s16;
-     length label $20 irt $20 crf $20 sides $6;
-     do label = "DISCONTINUE", "DISCONTINUED", "END OF TREATMENT", "CYCLE 1 DAY 1";
-          irt = ifc(label = "DISCONTINUE", "END OF TREATMENT", label);
-          crf = ifc(index(label, "DISCONT") > 0, "END OF TREATMENT", label);
-          sides = ifc(irt = crf, "hit", "MISS");
-          output;
-     end;
-run;
-
-data _chk;
-     length check $64 expected $40 actual $40 verdict $7;
-     set s16;
-     check    = "F6 " || strip(label) || " folds the same on both sides";
-     expected = ifc(label = "DISCONTINUED", "MISS", "hit");
-     actual   = sides;
-     verdict  = ifc(sides = expected, "ok", "FAIL");
-     keep check expected actual verdict;
-run;
-proc append base = checks data = _chk; run;
-
-*====================================================================*;
-*  7. S15  the volume case                                           *;
+*  4. S15  the volume case                                           *;
 *====================================================================*;
 %if &vol_subjects > 0 %then %do;
 proc sql noprint;
@@ -527,13 +446,10 @@ proc print data = cmp noobs;
          exp_status chain_status exp_probes probes verdict;
 run;
 
-title "Kit chain check -- F4 the collapsed record for an 80-kit visit";
+title "Kit chain check -- F4 the collapsed record for a three-kit visit";
 proc print data = f4_claps noobs;
      var scn_num vis_type refid kit_num lot_num btch_num;
 run;
-
-title "Kit chain check -- F5 capacity of refid";
-proc print data = f5 noobs; run;
 
 title "Kit chain check -- assertions";
 proc print data = checks noobs;

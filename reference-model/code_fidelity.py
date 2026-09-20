@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 """Is the code printed in the note the code in the program?
 
-The note claims its listings are the program, not a paraphrase of it. That is a
-claim about two files, so it is checked rather than trusted. Three things are
-compared, all against v_ec.sas:
+The note claims its listings are the program, not a paraphrase of it, and its
+scenario matrix is the specification the shipped check asserts. Both are claims
+about two files, so they are checked rather than trusted:
 
-  part A  the six listings printed in section 3 of the note
+  part A  the six listings printed in section 3 of the note, against v_ec.sas
   part B  the step that kit_chain_check.sas runs, which must contain every
           statement of the program's four chain blocks
-  part C  the dummy-data fixture printed in section 7 of the note, which must be
-          the one the verifier loads
+  part C  the dummy-data fixture printed in section 7.2, which must be the one
+          the check loads
+  part D  the scenario matrix in section 5.2, whose kit, lot, batch and probe
+          count must be the expected table the check asserts
 
 Comparison is case-folded, with comments, the note's own (12) markers and
 whitespace dropped, so indentation and comment numbering are free to differ and
@@ -27,8 +29,8 @@ Usage:
   python code_fidelity.py --note path/to/index.html
   python code_fidelity.py --check path/to/kit_chain_check.sas
 
-Exit code is non-zero if any block differs, any statement is missing, or the
-fixture has drifted.
+Exit code is non-zero if any block differs, any statement is missing, the
+fixture has drifted, or the matrix disagrees with the check.
 """
 import argparse
 import html
@@ -128,6 +130,27 @@ def datalines_block(text, anchor):
     return [ln for ln in text[a:b].strip("\n").splitlines() if ln.strip()]
 
 
+def section(text, first, last):
+    return text[text.index(first):text.index(last)]
+
+
+TRIPLE = r"(\d+)\s*/\s*(LOT-[\w-]+)\s*/\s*(B[\w-]+)"
+
+
+def matrix(note):
+    """(case, {(kit, lot, batch)}, probes) for every row of the 5.2 matrix."""
+    seg = section(note, "<h3>5.2", "<h3>5.3")
+    out = []
+    for tr in re.findall(r"<tr>(.*?)</tr>", seg, re.S):
+        cells = [unstyled(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+        if len(cells) < 5 or not re.match(r"^S\d\d$", cells[0].strip()):
+            continue
+        hops = re.findall(r"\b(\d+)\b", cells[3])
+        out.append((cells[0].strip(), set(re.findall(TRIPLE, cells[2])),
+                    int(hops[0]) if hops else None))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--note", default=os.path.join(REPO, "index.html"))
@@ -160,7 +183,7 @@ def main():
                          pick(needles), lines(args.sas, *RANGES[key]))
 
     print("\n" + "=" * 74)
-    print("part B  the step the verifier runs against the program")
+    print("part B  the step the check runs against the program")
     print("=" * 74)
     ver = read(args.check)
     if "%macro run_case" not in ver or "%mend run_case" not in ver:
@@ -185,17 +208,16 @@ def main():
     fails += absent
 
     print("\n" + "=" * 74)
-    print("part C  the fixture printed in the note against the verifier's")
+    print("part C  the fixture printed in section 7.2 against the check's")
     print("=" * 74)
-    for label, anchor in (("S01-S17", "data raw_kit;"), ("expected", "data expect;")):
-        want = datalines_block(ver, anchor)
-        hits = [b for b in pool
-                if [ln for ln in b.splitlines() if ln.strip()] and
-                [ln for ln in b.splitlines() if ln.strip()][0] == want[0]]
-        if len(hits) != 1:
-            print("  %-8s cannot locate the block in the note (%d hits)" % (label, len(hits)))
-            fails += 1
-            continue
+    want = datalines_block(ver, "data raw_kit;")
+    hits = [b for b in pool
+            if [ln for ln in b.splitlines() if ln.strip()] and
+            [ln for ln in b.splitlines() if ln.strip()][0] == want[0]]
+    if len(hits) != 1:
+        print("  cannot locate the fixture in the note (%d hits)" % len(hits))
+        fails += 1
+    else:
         got = [ln for ln in hits[0].splitlines() if ln.strip()]
         bad = 0
         for i in range(max(len(got), len(want))):
@@ -205,10 +227,47 @@ def main():
                 bad += 1
                 if bad <= 3:
                     print("  DIFF at line %d\n    note    : %s\n    verifier: %s" % (i + 1, x, y))
-        print("  %-8s note %d lines, verifier %d lines -> %s"
-              % (label, len(got), len(want),
-                 "identical" if not bad else "%d line(s) differ" % bad))
+        print("  note %d lines, check %d lines -> %s"
+              % (len(got), len(want), "identical" if not bad else "%d line(s) differ" % bad))
         fails += bad
+
+    print("\n" + "=" * 74)
+    print("part D  the scenario matrix in section 5.2 against the check's table")
+    print("=" * 74)
+    expect = {}
+    for ln in datalines_block(ver, "data expect;"):
+        case, scn, vis, kit, lot, btch, status, probes = [c.strip() for c in ln.split("|")]
+        expect.setdefault(case, {"triples": set(), "probes": set()})
+        expect[case]["triples"].add((kit, lot, btch))
+        expect[case]["probes"].add(int(probes))
+    bad = 0
+    seen = set()
+    for case, triples, hops in matrix(source):
+        seen.add(case)
+        if case not in expect:
+            print("  %-5s in the matrix, no expected row -- correct for S14 and S15" % case)
+            if triples:
+                print("     but the matrix prints %s, which the check does not assert"
+                      % sorted(triples))
+                bad += 1
+            continue
+        want = expect[case]
+        if triples != want["triples"]:
+            print("  %-5s matrix %s, expected table %s"
+                  % (case, sorted(triples), sorted(want["triples"])))
+            bad += 1
+        elif hops is not None and hops not in want["probes"]:
+            print("  %-5s matrix hops %s, expected probes %s"
+                  % (case, hops, sorted(want["probes"])))
+            bad += 1
+        else:
+            print("  %-5s kit, lot, batch and probe count agree" % case)
+    for case in sorted(expect):
+        if case not in seen:
+            print("  %-5s asserted by the check, missing from the matrix" % case)
+            bad += 1
+    print("  %d scenario rows compared, %d disagree" % (len(seen), bad))
+    fails += bad
 
     print("\n" + "=" * 74)
     print("code fidelity: %s" % ("PASS" if fails == 0 else "FAIL (%d)" % fails))
