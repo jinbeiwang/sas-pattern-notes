@@ -6,6 +6,11 @@ De-identified, reusable write-ups of coding patterns from clinical statistical p
 single self-contained HTML file — no font CDN, no script CDN, no image files, nothing to install. Read it on
 the live site above, or open the file straight from the repository.
 
+The chained kit-replacement note has been **retired from this repository**. It is published with the other notes
+at <https://jinbeiwang.github.io/notes/sas-kit-chain-replacement.html>, and one note would not be maintained
+in two places. The site root forwards there, so links into this repository keep working; the full text stays in
+the history as `git show 21bc431:index.html`. The programs that note describes are still here — see Checks.
+
 Every note answers the same seven questions, in the same order:
 
 1. What the code has to do — the requirement, then the data shape that follows from it
@@ -22,13 +27,13 @@ that can be hidden. Adding or renaming a section needs no edit to any link list.
 
 ## Notes
 
-Each note except the first is served under the site root at its own filename, for example
+Each note is served under the site root at its own filename, for example
 <https://jinbeiwang.github.io/sas-pattern-notes/sas-hash-clinical-note.html>.
 
 | Note | Read online | Subject |
 |---|---|---|
 | The SAS hash object: definition, lookup, load and output | [web](https://jinbeiwang.github.io/sas-pattern-notes/sas-hash-clinical-note.html) · [source](sas-hash-clinical-note.html) | Full syntax skeleton (declare → definekey → definedata → definedone → find / output), six argument tags, the method set and its return codes; four clinical shapes (screening and population flags, horizontal ADSL→ADLB merge, cross-visit baseline retrieval, AE×CM many-to-many), written in Chinese. Eight pitfalls with sources — duplicate keys kept silently, dataset loaded at `definedone()` rather than `declare`, data variables retaining their previous value when `find()` misses, `output()` not writing keys, `key:` type agreement. |
-| Chained kit replacement with the SAS hash object | [web](https://jinbeiwang.github.io/sas-pattern-notes/) · [source](index.html) | Resolving a replacement chain of unknown depth in a single pass of a DATA step; why an in-memory hash and not a merge; twelve cases of imperfect input — a chain of three the longest, since that is the most any subject has shown — each one printed as dummy data and asserted by a self-contained Base SAS program that ships with the note. The duplicate rule is the part worth reading twice: `duplicate: "error"` only does its job because the deduplication in front of it carries the payload in its `by` list rather than the key alone. |
+| Chained kit replacement with the SAS hash object | [web](https://jinbeiwang.github.io/notes/sas-kit-chain-replacement.html) · [source](https://github.com/jinbeiwang/jinbeiwang.github.io/blob/main/src/content/notes/sas-kit-chain-replacement.md) | Resolving a replacement chain of unknown depth in a single pass of a DATA step; why an in-memory hash and not a merge; twelve cases of imperfect input — a chain of three the longest, since that is the most any subject has shown — each one printed as dummy data and asserted by a self-contained Base SAS program that ships with the note. The duplicate rule is the part worth reading twice: `duplicate: "error"` only does its job because the deduplication in front of it carries the payload in its `by` list rather than the key alone. |
 
 ## Checks
 
