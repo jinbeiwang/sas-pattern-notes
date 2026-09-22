@@ -77,11 +77,18 @@
 
 <h2>What this repository still carries</h2>
 <ul>
+  <li><a href="mmrm-clinical-note.html">MMRM for a longitudinal continuous endpoint</a>
+  &mdash; the other note in this repository, in Chinese, published from here.</li>
+  <li><a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/mmrm_check.sas"><code>mmrm_check.sas</code></a>
+  &mdash; the self-contained Base SAS program behind that note: a 240-subject fixture with monotone dropout,
+  the model fitted over it, and seventeen structural assertions with a gate at the end.</li>
+  <li><a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/reference-model/mmrm_fidelity.py"><code>reference-model/mmrm_fidelity.py</code></a>
+  &mdash; holds that note's two listings and its asserted values to <code>mmrm_check.sas</code>, statement by statement.</li>
   <li><a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/kit_chain_check.sas"><code>kit_chain_check.sas</code></a>
-  &mdash; the self-contained Base SAS program that builds every case of the note's scenario matrix as dummy data,
-  runs the chain step over each one and asserts the result. Section 7 of the note describes it.</li>
+  &mdash; the self-contained Base SAS program that builds every case of the retired note's scenario matrix as dummy data,
+  runs the chain step over each one and asserts the result. Section 7 of that note describes it.</li>
   <li><a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/reference-model/code_fidelity.py"><code>reference-model/code_fidelity.py</code></a>
-  &mdash; holds the note's listings, its fixture and its scenario matrix to the program, statement by statement.</li>
+  &mdash; holds the retired note's listings, its fixture and its scenario matrix to the program, statement by statement.</li>
   <li><a href="https://github.com/jinbeiwang/sas-pattern-notes/blob/main/reference-model/ec_step_model.py"><code>reference-model/ec_step_model.py</code></a>
   &mdash; the same fixture through a dependency-free emulation of the DATA step, for readers without SAS.</li>
   <li><a href="sas-hash-clinical-note.html">The SAS hash object: definition, lookup, load and output</a>

@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MMRM for a longitudinal continuous endpoint — SAS Pattern Note</title>
+<style>
+  :root{
+    --ink:#17181a;
+    --muted:#5b6570;
+    --faint:#8b949e;
+    --rule:#d8dde3;
+    --rule-soft:#eaeef2;
+    --accent:#1b4f8a;
+    --accent-soft:#eef3f8;
+    --emerald:#0f7b5f; --emerald-soft:#f0f7f4;
+    /* a pass is a conclusion, and conclusions are emerald — two greens a few
+       degrees apart would read as a mistake */
+    --ok:var(--emerald);      --ok-bg:var(--emerald-soft);
+    --cav:#8a5a00;     --cav-bg:#fdf7ec;
+    --bad:#9a2b2b;     --bad-bg:#fdf3f3;
+    --code-bg:#f7f8f9;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; padding:0 24px 96px;
+    background:#ffffff; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px; line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:880px;margin:0 auto;}
+
+  /* ---------- masthead ---------- */
+  header.mast{position:relative;padding:52px 0 22px;}
+  /* the one place the two hues meet, half and half — indigo for the left,
+     emerald for the right. Drawn as a background bar so the hard stop lands
+     cleanly, and the extra 2px of padding absorbs the border it replaces. */
+  header.mast::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+    background:linear-gradient(90deg,var(--accent) 0 50%,var(--emerald) 50% 100%);}
+  .kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:14px;}
+  h1{font-size:31px;line-height:1.22;letter-spacing:-.015em;margin:0 0 14px;font-weight:700;}
+  .deck{font-size:16.5px;line-height:1.55;color:var(--muted);margin:0 0 22px;max-width:760px;}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px 28px;font-size:12.5px;color:var(--muted);padding-top:16px;border-top:1px solid var(--rule-soft);}
+  .meta-row b{color:var(--ink);font-weight:600;}
+
+  /* ---------- sections ---------- */
+  /* no ornament: the numeral and the 56px of space above it carry the hierarchy */
+  h2{font-size:20px;margin:56px 0 6px;font-weight:700;letter-spacing:-.01em;}
+  h2 .n{color:var(--accent);margin-right:10px;font-variant-numeric:tabular-nums;}
+  h2 + .lede{color:var(--muted);font-size:14.5px;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid var(--rule-soft);}
+  h3{font-size:15.5px;margin:32px 0 8px;font-weight:700;}
+  h4{font-size:14px;margin:22px 0 6px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;}
+  p{margin:11px 0;}
+  a{color:var(--accent);}
+  ul,ol{margin:11px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  /* a list is an enumeration of findings */
+  li::marker{color:var(--emerald);}
+  ol li::marker{font-weight:600;}
+  blockquote{margin:16px 0;padding:2px 0 2px 18px;border-left:2px solid var(--emerald);
+             color:var(--muted);font-style:italic;}
+  code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+       font-size:12.6px;background:#f0f2f4;border:1px solid #e2e6ea;border-radius:3px;padding:1px 4px;}
+
+  /* ---------- code ---------- */
+  pre{margin:14px 0;background:var(--code-bg);border:1px solid var(--rule-soft);
+      border-left:3px solid var(--accent);border-radius:4px;padding:14px 16px;overflow-x:auto;}
+  pre code{background:none;border:none;padding:0;font-size:12.4px;line-height:1.62;color:#1f2328;white-space:pre;}
+  .cm{color:#6f7883;}
+  .kw{color:#0b3d68;font-weight:600;}
+  .mk{color:#8a5a00;font-weight:700;}
+
+  /* ---------- tables ---------- */
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.4px;}
+  thead th{
+    text-align:left;padding:9px 12px 8px;font-weight:700;font-size:12.4px;
+    border-top:2px solid var(--emerald);border-bottom:1px solid var(--emerald);
+    background:var(--emerald-soft);color:var(--ink);vertical-align:bottom;
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--rule-soft);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:2px solid var(--emerald);}
+  td code,th code{font-size:12px;}
+  .num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+
+  /* ---------- status pills ---------- */
+  .pill{display:inline-block;font-size:10.6px;font-weight:700;letter-spacing:.07em;
+        text-transform:uppercase;padding:2px 7px;border-radius:3px;border:1px solid;white-space:nowrap;}
+  .ok{color:var(--ok);background:var(--ok-bg);border-color:#c2ddd4;}
+  .cav{color:var(--cav);background:var(--cav-bg);border-color:#e8d3a8;}
+  .bad{color:var(--bad);background:var(--bad-bg);border-color:#ecc4c4;}
+
+  /* ---------- callouts ---------- */
+  .box{margin:18px 0;padding:14px 18px;border-radius:4px;font-size:14px;background:#f7f8f9;border:1px solid var(--rule-soft);}
+  .box .t{display:block;font-weight:700;font-size:12.4px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;color:var(--muted);}
+  .box.note{background:var(--accent-soft);border-color:#cfdff0;}
+  .box.note .t{color:var(--accent);}
+  .box.finding{background:#fff;border:1px solid var(--rule);border-left:3px solid var(--cav);}
+  .box.finding .t{color:var(--cav);}
+  /* the block a reader is meant to leave with */
+  .box.takeaway{background:#fff;border:1px solid var(--rule);border-left:3px solid var(--emerald);}
+  .box.takeaway .t{color:var(--emerald);}
+  .box p:first-of-type{margin-top:0;}
+  .box p:last-child{margin-bottom:0;}
+
+  /* ---------- figure ---------- */
+  figure{margin:26px 0;}
+  figure svg{width:100%;height:auto;display:block;}
+  figcaption{font-size:13px;color:var(--muted);margin-top:12px;line-height:1.55;padding-top:10px;border-top:1px solid var(--rule-soft);}
+  /* the figure number is a citation; the metadata labels are provenance */
+  figcaption b{color:var(--emerald);}
+  .meta-row b{color:var(--emerald);}
+  /* a note writes [doc], [lit] or [实践] inside an <em class="ev"> and the tag
+     reads as a tag instead of as emphasis — the wash is what makes it survive
+     being read past */
+  em.ev{font-style:normal;font-weight:600;color:var(--emerald);letter-spacing:.01em;
+        background:var(--emerald-soft);border-radius:3px;padding:1px 5px;}
+
+  /* ---------- misc ---------- */
+  .small{font-size:12.8px;color:var(--muted);}
+  hr{border:none;border-top:1px solid var(--rule-soft);margin:34px 0;}
+  /* bookends the note in the second hue, at the weight of the table rules */
+  footer{margin-top:64px;padding-top:18px;border-top:2px solid var(--emerald);
+         font-size:12.6px;color:var(--faint);}
+
+  /* ---------- print: backgrounds do not print unless asked ---------- */
+  @media print{
+    thead th{background:transparent;}
+    header.mast::after{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+</style>
+
+<!-- @@SPN-SHELL:CSS:BEGIN@@ -->
+<style id="spn-shell-css">
+/* ==========================================================================
+   SAS Pattern Note — collapsible left-hand contents shell
+   Appended to a note's own <style> block by scripts/add_toc_shell.py.
+   Assumes the note defines these custom properties (falls back if not):
+     --ink --muted --faint --rule --rule-soft
+     --accent --accent-soft --emerald --emerald-soft
+   ========================================================================== */
+
+:root { --sbw: 272px; }
+
+/* ---------- trigger ---------- */
+.spn-toggle {
+  position: fixed; z-index: 70; top: 14px; left: 14px;
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 600 12.2px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  letter-spacing: .02em;
+  color: var(--ink, #17181a); background: #fff;
+  border: 1px solid var(--rule, #d8dde3); border-radius: 6px;
+  padding: 8px 11px; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(23, 24, 26, .08);
+}
+.spn-toggle:hover { border-color: var(--accent, #1b4f8a); color: var(--accent, #1b4f8a); }
+.spn-toggle:focus-visible { outline: 2px solid var(--accent, #1b4f8a); outline-offset: 2px; }
+.spn-toggle .bars { font-size: 13px; line-height: 1; }
+
+/* ---------- sidebar ---------- */
+.spn-toc {
+  position: fixed; z-index: 60; top: 0; left: 0; bottom: 0; width: var(--sbw);
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  background: #fff; border-right: 1px solid var(--rule-soft, #eaeef2);
+  padding: 60px 8px 48px 22px;
+  transition: transform .22s ease;
+}
+.spn-toc::-webkit-scrollbar { width: 8px; }
+.spn-toc::-webkit-scrollbar-thumb { background: #dbe1e8; border-radius: 4px; }
+/* the panel's title keeps a short emerald tick. It is the only mark of its kind
+   left on the page, which is what makes it read as the drawer's own starting point */
+.spn-toc-title {
+  position: relative;
+  margin: 0 0 12px; padding-left: 10px;
+  font-size: 10.6px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--faint, #8b949e);
+}
+.spn-toc-title::before {
+  content: ""; position: absolute; top: -9px; left: 10px;
+  width: 18px; height: 3px; border-radius: 2px;
+  background: var(--emerald, #0f7b5f);
+}
+.spn-toc-nav { font-size: 12.9px; line-height: 1.42; }
+.spn-toc-nav a {
+  display: block; text-decoration: none; color: var(--muted, #5b6570);
+  padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 3px 3px 0;
+}
+/* inside the panel the second hue means "here" — the entry you are pointing at,
+   or the one you are reading. Navigation itself stays indigo (the trigger). */
+.spn-toc-nav a:hover { color: var(--emerald, #0f7b5f); background: var(--emerald-soft, #f0f7f4); }
+.spn-toc-nav a.spn-h3 { padding-left: 24px; font-size: 12.2px; }
+.spn-toc-nav a.spn-h2 { font-weight: 600; color: var(--ink, #17181a); }
+.spn-toc-nav a.active {
+  color: var(--emerald, #0f7b5f); font-weight: 600; background: var(--emerald-soft, #f0f7f4);
+  border-left-color: var(--emerald, #0f7b5f);
+}
+.spn-toc-foot {
+  margin-top: 22px; padding: 12px 10px 0;
+  border-top: 1px solid var(--rule-soft, #eaeef2);
+  font-size: 11px; line-height: 1.5; color: var(--faint, #8b949e);
+}
+
+/* ---------- content shift (wide screens) ---------- */
+html body { padding-left: var(--sbw); transition: padding-left .22s ease; }
+html body.spn-hidden { padding-left: 0; }
+html body.spn-hidden .spn-toc { transform: translateX(-100%); }
+
+/* ---------- scrim (only meaningful when the sidebar overlays content) ---------- */
+.spn-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(23, 24, 26, .28); display: none; }
+
+/* ---------- narrow: overlay drawer instead of pushing the text ---------- */
+@media (max-width: 1080px) {
+  html body { padding-left: 0; }
+  .spn-toc { transform: translateX(-100%); box-shadow: 0 8px 40px rgba(23, 24, 26, .18); }
+  html body:not(.spn-hidden) .spn-toc { transform: translateX(0); }
+  html body:not(.spn-hidden) .spn-scrim { display: block; }
+}
+
+/* ---------- print: contents are navigation, not content ---------- */
+@media print {
+  .spn-toc, .spn-toggle, .spn-scrim { display: none !important; }
+  html body { padding-left: 0 !important; }
+}
+
+/* ---------- anchors ---------- */
+.page h1, .page h2, .page h3, .page h4 { scroll-margin-top: 16px; }
+
+/* ---------- very small screens ---------- */
+@media (max-width: 520px) {
+  .spn-toggle .lbl { display: none; }
+}
+</style>
+<!-- @@SPN-SHELL:CSS:END@@ -->
+</head>
+<body>
+<!-- @@SPN-SHELL:DOM:BEGIN@@ -->
+<button class="spn-toggle" type="button" aria-controls="spnToc"
+        aria-expanded="true" title="Show or hide the contents (Esc)">
+  <span class="bars" aria-hidden="true">&#9776;</span><span class="lbl">Contents</span>
+</button>
+<aside class="spn-toc" id="spnToc" aria-label="Contents">
+  <div class="spn-toc-title">Contents</div>
+  <nav class="spn-toc-nav"></nav>
+  <div class="spn-toc-foot">MMRM · 7 sections · mmrm_check.sas</div>
+</aside>
+<div class="spn-scrim" aria-hidden="true"></div>
+<!-- @@SPN-SHELL:DOM:END@@ -->
+
+
+<div class="page">
+
+<header class="mast">
+  <div class="kicker">SAS Pattern Note &middot; 纵向连续终点</div>
+  <h1>MMRM：把纵向连续终点的主分析写成一段可复现、可预先规定的 SAS</h1>
+  <p class="deck">一个 III 期试验的主要终点常常是"第 24 周相对基线的变化"。脱落让每个受试者的观测条数
+  不同，而监管要的是所有随机受试者的平均治疗效应。这一段 <code>PROC MIXED</code> 就是为此而存在的：不设
+  随机效应，直接把残差协方差建成非结构化，用全部已观测数据估计边际均值差。读完你会知道每个选项为什么
+  在那儿、换掉它会付出什么代价，以及为什么真正决定成败的是揭盲前写进 SAP 的那几行。</p>
+  <div class="meta-row">
+    <span><b>来源</b> &nbsp;去标识化的 ADaM BDS 形态；研究编号与方案号以 <code>NNNN</code> 代替</span>
+    <span><b>状态</b> &nbsp;静态分析，本机无 SAS 会话；附可运行的校验程序而非转录的输出</span>
+  </div>
+</header>
+
+<div class="box note" style="margin-top:26px;">
+  <span class="t">范围与去标识化</span>
+  <p class="small">研究编号、方案号、库中路径、程序头、作者与修订历史均已移除或泛化；输入数据集名泛化为
+  <code>ADLBC</code> / <code>ADBDS</code>；访视标签保留为通用英文。本笔记覆盖的是<b>主要终点的主分析那一次
+  拟合</b>：从分析数据集构建到访视内治疗差异的读出。它<b>不</b>覆盖多重插补、参考基准插补（J2R / CIR）、
+  tipping-point 敏感性分析，也不覆盖二分类与生存终点——那些是另一组模式。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">1</span>这段代码要完成什么</h2>
+<p class="lede">一句话的需求，以及由它决定的数据形状。</p>
+
+<p>需求：估计<b>每个剂量组与安慰剂在第 24 周的基线变化之差</b>，采用 treatment-policy 估计目标，并且
+<b>不丢弃任何一条已观测到的治疗后测量</b>。第 24 周是主要时间点，但第 4、8、12、16 周的测量不是多余的——
+它们为协方差结构和脱落受试者的信息提供了依据。</p>
+
+<h3>1.1 数据形状</h3>
+<p>输入是 ADaM BDS 的纵向形态：<b>一行一个受试者 × 一个访视</b>。这不是偏好问题，而是
+<code>REPEATED</code> 语句要求的形状——<code>SUBJECT=</code> 识别聚类，<code>REPEATED</code> 的效应识别聚类
+内部的位置。</p>
+
+<table>
+  <thead><tr><th style="width:150px;">变量</th><th style="width:110px;">角色</th><th>在这段代码里的作用</th></tr></thead>
+  <tbody>
+    <tr><td><code>USUBJID</code></td><td>聚类标识</td><td><code>REPEATED ... / SUBJECT=</code> 的聚类单元；同时进 <code>CLASS</code>。<span class="num">V</span> 矩阵的块由它切分。</td></tr>
+    <tr><td><code>AVISITN</code></td><td>位置</td><td><code>REPEATED AVISITN</code> 的重复效应。<b>必须是分类变量</b>：进 <code>CLASS</code>，否则模型把时间当成连续直线。</td></tr>
+    <tr><td><code>TRTP</code></td><td>计划治疗</td><td>treatment-policy 估计目标下用计划分组，而非实际用药。</td></tr>
+    <tr><td><code>CHG</code></td><td>响应</td><td><code>AVAL - BASE</code>。<b>只在治疗后访视上定义</b>；基线记录的 <code>CHG</code> 恒为 0。</td></tr>
+    <tr><td><code>BASE</code> / <code>BASE_C</code></td><td>协变量</td><td>基线作为协变量进入模型，不是响应。<code>BASE_C</code> 是中心化版本，只影响截距的可读性。</td></tr>
+    <tr><td><code>ANL01FL</code></td><td>纳入标志</td><td>分析集标志。注意它<b>不等于</b>"这条记录进入响应向量"——见第 5 节 F1。</td></tr>
+  </tbody>
+</table>
+
+<div class="box">
+  <span class="t">问题的形状</span>
+  <p>三件事同时成立，才把问题推到 MMRM 上：（一）<b>同一个受试者的多次测量彼此相关</b>，任何假设观测独立
+  的过程都会低估标准误；（二）<b>每个受试者的观测条数不同</b>，脱落让数据天然不平衡；（三）<b>要推断的是
+  总体平均</b>，不是某个特定受试者的效应。前两条排除了 <code>PROC GLM</code>，第三条排除了带随机效应的
+  条件模型。</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 680 196" role="img" aria-label="受试者乘访视的纵向数据块，每块对应一个非结构化残差协方差矩阵">
+  <g font-family="-apple-system,Segoe UI,'PingFang SC','Microsoft YaHei',Helvetica,Arial,sans-serif">
+    <text x="16" y="20" font-size="11.5" font-weight="700" fill="#17181a">一行一个受试者 × 一个访视</text>
+    <text x="16" y="36" font-size="10" fill="#5b6570">格子填色 = 已观测；空格 = 脱落，不填补</text>
+
+    <g>
+      <text x="16" y="62" font-size="10" fill="#5b6570">01-001</text>
+      <rect x="66" y="50" width="72" height="18" fill="#f0f7f4" stroke="#0f7b5f"/>
+      <rect x="142" y="50" width="72" height="18" fill="#f0f7f4" stroke="#0f7b5f"/>
+      <rect x="218" y="50" width="72" height="18" fill="#f0f7f4" stroke="#0f7b5f"/>
+      <rect x="294" y="50" width="72" height="18" fill="#f0f7f4" stroke="#0f7b5f"/>
+      <rect x="370" y="50" width="72" height="18" fill="#f0f7f4" stroke="#0f7b5f"/>
+    </g>
+    <g>
+      <text x="16" y="84" font-size="10" fill="#5b6570">01-002</text>
+      <rect x="66" y="72" width="72" height="18" fill="#f0f7f4" stroke="#0f7b5f"/>
+      <rect x="142" y="72" width="72" height="18" fill="#f0f7f4" stroke="#0f7b5f"/>
+      <rect x="218" y="72" width="72" height="18" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+      <rect x="294" y="72" width="72" height="18" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+      <rect x="370" y="72" width="72" height="18" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+    </g>
+    <g>
+      <text x="16" y="106" font-size="10" fill="#5b6570">01-003</text>
+      <rect x="66" y="94" width="72" height="18" fill="#f0f7f4" stroke="#0f7b5f"/>
+      <rect x="142" y="94" width="72" height="18" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+      <rect x="218" y="94" width="72" height="18" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+      <rect x="294" y="94" width="72" height="18" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+      <rect x="370" y="94" width="72" height="18" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+    </g>
+
+    <text x="102" y="128" font-size="9.5" text-anchor="middle" fill="#5b6570">W4</text>
+    <text x="178" y="128" font-size="9.5" text-anchor="middle" fill="#5b6570">W8</text>
+    <text x="254" y="128" font-size="9.5" text-anchor="middle" fill="#5b6570">W12</text>
+    <text x="330" y="128" font-size="9.5" text-anchor="middle" fill="#5b6570">W16</text>
+    <text x="406" y="128" font-size="9.5" text-anchor="middle" fill="#5b6570">W24</text>
+
+    <line x1="448" y1="78" x2="478" y2="78" stroke="#1b4f8a" stroke-width="1.4"/>
+    <polygon points="478,78 470,74.5 470,81.5" fill="#1b4f8a"/>
+
+    <rect x="484" y="46" width="180" height="64" rx="5" fill="#eef3f8" stroke="#1b4f8a" stroke-width="1.5"/>
+    <text x="574" y="68" font-size="11.5" font-weight="700" text-anchor="middle" fill="#1b4f8a">V&#8341; 非结构化</text>
+    <text x="574" y="85" font-size="10" text-anchor="middle" fill="#17181a">5 访视 → 15 个参数</text>
+    <text x="574" y="100" font-size="10" text-anchor="middle" fill="#17181a">缺失的格子从 likelihood 里消失</text>
+
+    <text x="16" y="164" font-size="10" fill="#8b949e">脱落受试者的前几次测量仍然贡献信息：它们既进入固定效应，也进入协方差结构。</text>
+    <text x="16" y="180" font-size="10" fill="#8b949e">只有一次都没有治疗后测量的受试者才真正无法贡献——主分析集与"能进模型的集"不是同一个集。</text>
+  </g>
+</svg>
+<figcaption><b>Figure 1 |</b> 纵向 BDS 的形状，以及非结构化残差协方差覆盖的范围。空格不是缺失值填补的对象，
+是似然里直接不存在的项。</figcaption>
+</figure>
+
+<div class="box takeaway">
+  <span class="t">What to take away</span>
+  <p>MMRM 不填补任何东西。它把每个受试者已观测到的那部分测量放进似然，缺失的那部分根本不出现——这就是
+  它"处理缺失数据"的全部含义，也是它在 MAR 下无偏、在 MNAR 下同样无能为力的原因。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">2</span>需要交代的背景</h2>
+<p class="lede">只讲下面这段拟合所依赖的机制，其余一概不提。</p>
+
+<h3>2.1 边际模型：不设随机效应是刻意的</h3>
+<p>带随机截距的 LMM 写成 <code>Y&#8341; = X&#8341;β + Z&#8341;u&#8341; + ε&#8341;</code>。把它对
+<code>u&#8341;</code> 积分掉，得到隐含的边际模型</p>
+
+<pre><code>V&#8341; = Z&#8341; D Z&#8341;<span class="mk">' + R&#8341;</span></code></pre>
+
+<p>这说明两件实用的事。第一，<b>随机截距 + 方差恒定的残差，其隐含边际模型就是复合对称（CS）</b>
+<em class="ev">[doc]</em>——所以"加随机截距"和"直接指定 CS 残差结构"在线性模型下是同一个模型，差别只在
+你想推断什么。第二，MMRM 跳过了中间那一步：<b>不写 <code>RANDOM</code>，直接把 <code>V&#8341;</code>
+建成非结构化</b>。代价是不能推断方差分量和 EBLUP；收益是固定效应直接就是<b>总体平均</b>效应，而这正是
+监管要的量。</p>
+
+<h3>2.2 协方差结构：每个选项值多少参数</h3>
+<p>非结构化不是"更高级"，而是<b>代价更高但假设更少</b>。<code>K</code> 个访视的非结构化矩阵要估
+<code>K(K+1)/2</code> 个参数，且随访视数平方增长。下面这些数字不是抄来的，是随笔记附带的
+<a href="mmrm_check.sas"><code>mmrm_check.sas</code></a> 在 <code>K = 5</code> 的夹具上数出来的
+<em class="ev">[实践]</em>。</p>
+
+<table>
+  <thead><tr><th style="width:150px;">结构</th><th style="width:96px;">参数个数</th><th style="width:92px;"><span class="num">K = 5</span></th><th>什么时候用它，以及它的假设</th></tr></thead>
+  <tbody>
+    <tr><td><span class="num">TYPE=UN</span></td><td><span class="num">K(K+1)/2</span></td><td class="num">15</td><td>主分析默认。不对方差与相关施加任何模式，因此不会因为结构错设而偏倚；代价是小样本下可能不收敛。</td></tr>
+    <tr><td><span class="num">TYPE=TOEP</span></td><td><span class="num">2K − 1</span></td><td class="num">9</td><td>UN 不收敛时的第一顺位降级。同一时间滞后共享一个相关，但方差仍可各访视不同。</td></tr>
+    <tr><td><span class="num">TYPE=AR(1)</span></td><td class="num">2</td><td class="num">2</td><td>相关随时间间隔指数衰减。<b>隐含等间隔假设</b>——访视在 0/4/8/12/16/24 周时，间隔并非全部相等，用它需要论证。</td></tr>
+    <tr><td><span class="num">TYPE=CS</span></td><td class="num">2</td><td class="num">2</td><td>任意两次观测相关相同、方差恒定。等价于随机截距模型的隐含边际结构，作为敏感性分析有意义，作为主分析假设过强。</td></tr>
+    <tr><td>默认（不写）</td><td class="num">1</td><td class="num">1</td><td><span class="pill bad">fail</span> 残差独立同方差。纵向数据上漏写 <code>TYPE=</code> 等于完全没建模时间相关，标准误被严重低估。</td></tr>
+  </tbody>
+</table>
+
+<h3>2.3 估计方法与两条铁律</h3>
+<p>REML 修正了 ML 因估计固定效应而损失的自由度，因此<b>协方差参数要用 REML</b>；但 REML 的似然依赖固定
+效应设计矩阵，因此<b>比较两个固定效应结构时必须切回 ML</b>。这是同一段分析里会切换 <code>METHOD=</code>
+的唯一正当理由 <em class="ev">[doc]</em>。校验程序 A12 / A13 断言了同一组固定效应在 ML 与 REML 下结构
+一致——协方差参数个数与交互项的分子自由度都不变，变的只是协方差估计值。</p>
+
+<h3>2.4 Kenward–Roger 不是可选项</h3>
+<p>无论 ML 还是 REML，固定效应的方差都因为用 <code>V&#770;</code> 代替真实 <code>V</code> 而<b>向下偏倚</b>。
+Kenward &amp; Roger (1997) 的调整把 <code>V&#770;</code> 的变异也计入，并给出近似的分母自由度
+<em class="ev">[lit]</em>。在样本量只有几百、访视缺失又严重的 II/III 期试验里，这是把 I 类错误压回名义水平
+的手段。校验程序 A14 断言 KR 的分母自由度与默认的 containment 不相同——如果两者相同，说明
+<code>DDFM=KR</code> 根本没生效。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">3</span>读这段代码</h2>
+<p class="lede">当前的实现，按步骤标注。 listings 与 <a href="mmrm_check.sas"><code>mmrm_check.sas</code></a> 逐语句一致。</p>
+
+<h3>3.1 构建分析数据集：基线是协变量，不是响应</h3>
+
+<pre><code><span class="kw">data</span> adbds;
+   <span class="kw">set</span> adlbc;
+   base_c = base - 26;
+   chg    = aval - base;
+   <span class="kw">if</span> avisitn &gt; 0 <span class="kw">then</span> <span class="kw">output</span>;
+<span class="kw">run</span>;</code></pre>
+
+<p>三条语句各有一件事要说：</p>
+
+<ul>
+  <li><b><code>base_c = base - 26</code></b> —— 中心化。26 是基线总均值的近似，只为了让截距落在"基线
+  HAM-D 约 26 分的受试者"这个可解释的位置上。<b>治疗对比不受影响</b>；但它能显著降低截距与基线协变量之间
+  的共线，让收敛更稳。</li>
+  <li><b><code>chg = aval - base</code></b> —— 在真实 ADaM 里 <code>CHG</code> 通常已在上游算好，这里重建
+  一次只是为了说明它的定义。<code>BASE</code> 在 BDS 的每一行上都带着，所以不需要跨访视去取。</li>
+  <li><b><code>if avisitn &gt; 0 then output;</code></b> —— <b>整段代码里最重要的一行</b>。基线记录上的
+  <code>CHG</code> 恒等于 0，方差为 0；把它留在响应向量里，等于往非结构化矩阵塞进一个零方差的行列。
+  校验程序的 A11 断言响应向量里最小的 <code>AVISITN</code> 是 4 而不是 0。</li>
+</ul>
+
+<h3>3.2 主拟合</h3>
+
+<pre><code><span class="kw">proc</span> <span class="kw">mixed</span> <span class="kw">data</span>=adbds method=reml;
+   <span class="kw">class</span> usubjid trtp(ref=<span class="mk">'Placebo'</span>) avisitn;
+   <span class="kw">model</span> chg = base_c trtp avisitn trtp*avisitn / solution htype=3 ddfm=kr;
+   <span class="kw">repeated</span> avisitn / subject=usubjid type=un r=1 rcorr=1;
+   <span class="kw">lsmeans</span> trtp*avisitn / cl diff slice=avisitn;
+   <span class="kw">ods</span> <span class="kw">output</span> CovParms = cp_un
+              Tests3   = t3
+              <span class="kw">LSMeans</span>  = lsm
+              SolutionF= solf;
+<span class="kw">run</span>;</code></pre>
+
+<p>逐项：</p>
+
+<table>
+  <thead><tr><th style="width:210px;">写法</th><th>它承担什么，去掉会怎样</th></tr></thead>
+  <tbody>
+    <tr><td><code>class ... avisitn</code></td><td><b>把时间当分类变量</b>。这样每个访视有自己的均值参数，响应轨迹可以是任意形状。若 <code>AVISITN</code> 不进 <code>CLASS</code> 而被当作数值，时间效应退化成一条直线，Type 3 的 <code>AVISITN</code> 分子自由度从 4 掉到 1——校验程序的 A6 就是抓这个的。</td></tr>
+    <tr><td><code>trtp(ref='Placebo')</code></td><td>把安慰剂设为参照水平，使 <code>solution</code> 里的系数与 <code>diff</code> 的对比直接以安慰剂为基准，不依赖字母序。</td></tr>
+    <tr><td><code>trtp*avisitn</code></td><td><b>允许治疗效应随访视变化</b>。没有这一项，等于假设各访视的治疗效应相同，会掩盖真实的时程差异。代价：它通常是模型里最大的一项，也是 UN 不收敛时第一个被审查的对象。</td></tr>
+    <tr><td><code>repeated ... / subject=usubjid</code></td><td>声明聚类单元。<b>没有 <code>RANDOM</code> 语句是刻意的</b>——这正是边际模型与条件模型的分界。</td></tr>
+    <tr><td><code>type=un</code></td><td>非结构化。不写就是对角阵（见 2.2 的表格）。</td></tr>
+    <tr><td><code>r=1 rcorr=1</code></td><td>打印第一个受试者的 <code>R</code> 与相关矩阵。不是为了好看：这是审稿人判断"相关是否随时间间隔衰减"的唯一直接材料。</td></tr>
+    <tr><td><code>ddfm=kr</code></td><td>Kenward–Roger 自由度。见 2.4。</td></tr>
+    <tr><td><code>lsmeans ... / slice=avisitn</code></td><td>给出<b>每个访视内的组间两两比较</b>，第 24 周那一组就是主要终点的对比。见 3.3。</td></tr>
+    <tr><td><code>ods output</code></td><td>把 <code>CovParms</code> / <code>Tests3</code> / <code>LSMeans</code> 落到数据集，供 TFL 复用。<b>不要靠人工从 output 窗口抄数字。</b></td></tr>
+  </tbody>
+</table>
+
+<h3>3.3 读出第 24 周的对比：用 <code>slice=</code>，不要手写系数</h3>
+<p>想要"第 24 周，Drug_High 减 Placebo"，最稳的写法是让 <code>LSMEANS</code> 自己去切，而不是手写
+<code>ESTIMATE</code> 的系数向量。原因是后者对<b>分类水平顺序</b>极其敏感：交互项
+<code>TRTP*AVISITN</code> 的 15 个列按 <code>TRTP</code> 慢变、<code>AVISITN</code> 快变排列，一旦
+<code>CLASS</code> 的水平顺序因为 <code>ORDER=</code> 选项或数据内容而变，同一串系数指的就是别的对比，
+而且<b>不会报错</b>。<code>SLICE=AVISITN</code> 按标签取值，不存在这个问题。</p>
+
+<div class="box">
+  <span class="t">如果要写 ESTIMATE</span>
+  <p>先在 <code>CLASS</code> 里固定水平顺序（例如加 <code>ORDER=DATA</code> 并用格式控制），再用
+  <code>/ E</code> 选项把 <code>L</code> 矩阵打印出来核对一遍系数落点。把这一步写进程序的注释里——
+  下一个接手的人是靠它判断对比对不对的。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">4</span>为什么是它，而不是那个更顺手的写法</h2>
+<p class="lede">先比较，再论证。</p>
+
+<table>
+  <thead><tr><th style="width:158px;">候选</th><th style="width:96px;">结论</th><th>为什么</th></tr></thead>
+  <tbody>
+    <tr><td><b>MMRM</b>（本笔记）</td><td><span class="pill ok">pass</span></td><td>用全部已观测数据；MAR 下无偏；直接给出总体平均效应；UN 不施加相关模式；KR 控制小样本 I 类错误。代价是必须在 SAP 里把结构、估计方法、自由度方法和降级路径全部写死。</td></tr>
+    <tr><td>LOCF + ANCOVA</td><td><span class="pill bad">fail</span></td><td>假设脱落者此后的数值不再变化，与医学常识相悖；人为压低方差导致假阳性。ICH E9(R1) 与 FDA 缺失数据指南均不把它作为主分析 <em class="ev">[doc]</em>。它还能作为敏感性分析存在，但绝非主分析。</td></tr>
+    <tr><td>Complete-case ANCOVA</td><td><span class="pill cav">defect</span></td><td>只用在第 24 周有观测的受试者。脱落与疗效相关时直接引入选择偏倚，且丢弃了中间访视的全部信息。作为敏感性分析有价值，作为主分析不够。</td></tr>
+    <tr><td>随机截距 LMM</td><td><span class="pill cav">defect</span></td><td>数学上等价于 CS 边际结构（2.1），等于给相关模式加了一个很强的假设；固定效应变成"给定随机效应为 0 时"的对象特异效应，与监管要的总体平均不是同一个量。</td></tr>
+    <tr><td>GEE</td><td><span class="pill cav">defect</span></td><td>同样估计总体平均，且作业相关设错也有稳健 SE 兜底。但标准 GEE 在 MAR 下并不自动有效（需要加权 GEE），且小样本下稳健 SE 偏乐观。更常见于不愿做强分布假设、或终点非连续的场合。</td></tr>
+  </tbody>
+</table>
+
+<h3>4.1 一个值得单独说的反直觉结论</h3>
+<p>很多笔记（包括我自己的旧稿）写着"基线 × 访视交互是可选的，多数情况下不需要"。这句话在
+2021 年被明确反驳过：Schuler 证明，<b>在调整基线协变量却不包含"协变量 × 时间"交互时，MMRM 相对
+complete-case ANCOVA 的功效增益与抗脱落偏倚能力都不再成立</b>，并用模拟做了验证
+<em class="ev">[lit]</em>。也就是说，加了基线协变量却不让它随时间变化，可能比不做纵向分析更糟。</p>
+
+<div class="box takeaway">
+  <span class="t">What to take away</span>
+  <p>把基线协变量放进模型，就要同时考虑 <code>BASE_C * AVISITN</code>。这不是"锦上添花"，而是 MMRM 相对
+  单时点 ANCOVA 是否真的占优的前提条件。它要进 SAP，因为它是主分析模型的一部分。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">5</span>设计与正确性</h2>
+<p class="lede">它保证了什么，哪些输入它 silently 处理错，以及那些必须由人来补的缺口。</p>
+
+<h3>5.1 不完美输入下的行为</h3>
+
+<table>
+  <thead><tr><th style="width:46px;">用例</th><th style="width:196px;">输入形状</th><th style="width:150px;">MMRM 的处理</th><th>判定与后果</th></tr></thead>
+  <tbody>
+    <tr><td class="num">S1</td><td>五个访视全部观测</td><td><span class="num">5 行进入似然</span></td><td><span class="pill ok">pass</span> 完整贡献固定效应与协方差结构。</td></tr>
+    <tr><td class="num">S2</td><td>单调脱落，第 8 周后不再就诊</td><td><span class="num">2 行进入似然</span></td><td><span class="pill ok">pass</span> 是 MMRM 存在的理由。前两访视既贡献均值轨迹，也贡献相关结构——受试者没有"被填补"，只是缺失部分不进似然。校验程序 A17 断言夹具里存在脱落。</td></tr>
+    <tr><td class="num">S3</td><td>只有基线记录，无任何治疗后测量</td><td><span class="num">0 行进入似然</span></td><td><span class="pill cav">defect</span> <b>被静默丢弃。</b>受试者仍在 ITT 集里，却对主分析零贡献。校验程序 A15 断言夹具里存在这类受试者；报告里要说清楚主分析集与"实际进入模型的受试者数"的差额。</td></tr>
+    <tr><td class="num">S4</td><td>只观测到一次治疗后访视</td><td><span class="num">1 行进入似然</span></td><td><span class="pill ok">pass</span> 仍被保留，贡献均值与方差，但不贡献相关。校验程序 A16 断言夹具里存在这类受试者。UN 能估出来靠的是别人，不是他。</td></tr>
+    <tr><td class="num">S5</td><td>访视间隔不等（4 / 4 / 4 / 4 / 8 周）</td><td>当作分类位置处理</td><td><span class="pill ok">pass</span> CLASS 化之后间隔不等无所谓——这是 UN 相对 AR(1) 的实际优势。<b>但如果改用 <code>TYPE=AR(1)</code>，等间隔假设就被破坏了</b>，此时应留在 UN 或 TOEP。</td></tr>
+    <tr><td class="num">S6</td><td>间歇性缺失（中间缺、后面又来）</td><td>照常进入似然</td><td><span class="pill ok">pass</span> MMRM 不要求单调缺失模式，这正是它优于只能处理单调缺失的某些插补方案的地方。</td></tr>
+  </tbody>
+</table>
+
+<h3>5.2 四个缺陷</h3>
+
+<div class="box finding">
+  <span class="t">Finding 1 — 基线记录留在响应向量里</span>
+  <p><code>ANL01FL = 'Y'</code> 在真实 ADaM 里常常<b>同时</b>标在基线记录和治疗后记录上，因为它的含义是
+  "这条记录属于该分析集"，不是"这条记录是响应"。直接 <code>where anl01fl = 'Y'</code> 就把
+  <code>CHG = 0</code> 的基线记录带进了模型：非结构化矩阵多出一行一列，其中方差为 0，拟合在边界上，
+  参数估计不可信。<b>防御</b>：显式 <code>if avisitn &gt; 0 then output;</code>，并在校验里断言最小的
+  <code>AVISITN</code>。这一步不能靠"数据集上游已经处理过"来保证。</p>
+</div>
+
+<div class="box finding">
+  <span class="t">Finding 2 — AVISITN 没进 CLASS</span>
+  <p>SAS 不会因为一个变量"看起来像访视编号"就当它是分类的。漏进 <code>CLASS</code> 时模型照常收敛、照常
+  出结果，只是时间效应变成一条直线，Type 3 的 <code>AVISITN</code> 分子自由度从 4 变成 1。<b>没有报错，
+  没有警告。</b> 防御：断言 Type 3 的分子自由度（校验程序 A6–A9）——交互项应为
+  <span class="num">(3−1) × (5−1) = 8</span>。</p>
+</div>
+
+<div class="box finding">
+  <span class="t">Finding 3 — 协方差结构事后挑选</span>
+  <p>看到 UN 的结果不满意再换成 CS，属于数据驱动的选择，会破坏 α 控制，是审评一定会被问的点。
+  <b>防御不在代码里，在 SAP 里</b>：把主分析结构和有序的降级路径（UN → TOEP → AR(1) → sandwich）在揭盲前
+  写死，并规定由谁记录偏差。代码能做的只有一件事：把实际使用的结构写进日志和 TFL 脚注。</p>
+</div>
+
+<div class="box finding">
+  <span class="t">Finding 4 — 预先规定的落实情况本身就堪忧</span>
+  <p>一项对 2015–2018 年提交给汉诺威医学院伦理委员会的 39 个 II/III 期方案的实际检查发现：95% 规定了固定
+  效应与随机效应，但只有 <b>77% 给出协方差矩阵结构</b>，给出检验方法的 36%、估计方法的 28%、
+  计算方法的 3%、降级策略的 18% <em class="ev">[lit]</em>。也就是说，"UN + REML + KR"这套默认组合
+  之所以常见，很大程度上是因为它没被写下来时大家默认这么做——而不是因为它被论证过。<b>这是写 SAP 时
+  最值得补的空白。</b></p>
+</div>
+
+<h3>5.3 模型不解决的事</h3>
+<p>MMRM 的合法性建立在 MAR 上，而 <b>MAR 无法用数据检验</b>——要检验就得有缺失的那些值。因此它必须由
+敏感性分析来补。行业会议上给出的成熟做法包括：把 pattern-mixture 模型表达为 MMRM 最小二乘均值的线性
+组合，并用 delta 法把脱落/完成者比例本身的多项随机性并入方差（Ratitch &amp; O'Kelly, PharmaSUG 2012
+<em class="ev">[lit]</em>）；以及在 MNAR 下用 <code>PROC MI</code> 做参考基准插补（J2R / CIR），再由
+<code>PROC MIANALYZE</code> 合并（PharmaSUG 2025 <em class="ev">[lit]</em>）。另一条常被忽略的界线是：
+<b>标准 MMRM 无法区分伴发事件前后的数据</b>——当缺失与伴发事件（停药、补救用药）高度相关时，MAR 假设会
+被实质性地违反，此时 treatment-policy 估计目标与标准 MMRM 之间出现裂缝（PharmaSUG China 2024
+<em class="ev">[lit]</em>）。</p>
+
+<div class="box takeaway">
+  <span class="t">What to take away</span>
+  <p>MMRM 是一个在 MAR 下无偏的估计器，不是一个"处理了缺失数据"的黑箱。它的可信度来自两处代码之外的
+  东西：揭盲前写死的模型设定，以及承认 MNAR 可能的敏感性分析。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">6</span>复用检查清单</h2>
+<p class="lede">换到另一个程序里之前，要改什么、要查什么。</p>
+
+<table>
+  <thead><tr><th style="width:230px;">要改的地方</th><th>改的时候注意什么</th></tr></thead>
+  <tbody>
+    <tr><td><code>AVISITN &gt; 0</code> 的阈值</td><td>本例用 0 表示基线。若项目用 <code>AVISITN = 99</code> 或负数值标记基线/未计划访视，阈值要跟着变，否则会把不该进的记录放进去。</td></tr>
+    <tr><td><code>BASE_C</code> 的中心化常数</td><td>26 是本例基线的近似总均值。换终点要换成新终点的数值——它只影响截距，但写错会让 <code>Solution for Fixed Effects</code> 里的截距无法解释。</td></tr>
+    <tr><td>固定效应列表</td><td>协变量必须逐条来自 SAP，不能来自"哪个显著"。分层因素（地区、基线疾病严重度）通常要进。</td></tr>
+    <tr><td><code>BASE_C * AVISITN</code></td><td>按 4.1，默认应该考虑纳入。加进去要同时检查 UN 还收不收敛。</td></tr>
+    <tr><td><code>TYPE=</code> 与降级路径</td><td>先确认访视数：<code>K(K+1)/2</code> 随访视数平方增长，8 个访视就是 36 个参数。样本量撑不住时，SAP 里就该预先写 TOEP。</td></tr>
+    <tr><td><code>DDFM=</code></td><td>KR 是默认选择。极不平衡或极大样本下 KR 计算开销明显，可考虑 <code>ddfm=kr2</code> 或 <code>bw</code>，但要在 SAP 里写明。</td></tr>
+    <tr><td>中心效应</td><td>本例未纳入。多中心试验里中心数少时作固定效应，中心数多时考虑随机效应——但随机中心效应会改变推断目标，需要统计师确认。</td></tr>
+    <tr><td><code>ODS OUTPUT</code> 的表名</td><td><code>Tests3</code> / <code>SolutionF</code> / <code>CovParms</code> / <code>LSMeans</code> 是 <code>PROC MIXED</code> 的表名；换成 <code>PROC GLIMMIX</code> 时部分表名不同，不要照抄。</td></tr>
+  </tbody>
+</table>
+
+<div class="box">
+  <span class="t">提交服务器之前</span>
+  <p>SAS 源码保持<b>全 ASCII</b>：注释、<code>TITLE</code>、<code>LABEL</code>、<code>%PUT</code> 文案一律
+  英文。中文注释在中文环境里看着没问题，到了服务器的编码环境里会变成乱码，而且可能让程序头校验失败。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">7</span>随笔记附带的校验程序</h2>
+<p class="lede">它断言什么，夹具长什么样，以及它刻意不解决什么。</p>
+
+<p><a href="mmrm_check.sas"><code>mmrm_check.sas</code></a> 是纯 Base SAS + SAS/STAT：没有研究宏、没有库名、
+没有外部输入、不产生永久数据集。它用 <code>CALL STREAMINIT(20260922)</code> 造出 240 个受试者、3 个治疗组、
+基线加 5 个治疗后访视的夹具，脱落是单调的且安慰剂组 hazard 更高——这就是一个症状性试验真实的样子。</p>
+
+<pre><code>sas mmrm_check.sas</code></pre>
+
+<p>17 条断言全部是<b>结构性</b>的。它们确定模型"是什么"：每个协方差结构值多少参数（A2–A5）、
+Type 3 的分子自由度是多少（A6–A9）、基线记录是否真的被排除（A11）、KR 是否真的改变了分母自由度
+（A14）、夹具里是否真的存在那几种麻烦的受试者（A15–A17）。期望值不是写死的数字，而是从刚生成的夹具里
+数出来的，所以断言不会随夹具漂移。</p>
+
+<table>
+  <thead><tr><th style="width:96px;">断言</th><th style="width:250px;">内容</th><th>它挡住哪个错误</th></tr></thead>
+  <tbody>
+    <tr><td class="num">A1, A11</td><td><span class="num">K = 5</span>，响应向量最小 <code>AVISITN</code> = 4</td><td>Finding 1：基线混进响应向量</td></tr>
+    <tr><td class="num">A2–A5</td><td><span class="num">UN 15 / CS 2 / TOEP 9 / AR(1) 2</span></td><td>结构成本算错、SAP 里参数预算写错</td></tr>
+    <tr><td class="num">A6–A9</td><td>Type 3 分子自由度 <span class="num">4 / 2 / 8 / 1</span></td><td>Finding 2：分类变量漏进 <code>CLASS</code></td></tr>
+    <tr><td class="num">A10</td><td><code>TRTP*AVISITN</code> 的 LS-means 共 <span class="num">15</span> 行</td><td>单元格缺失、访视标签不一致</td></tr>
+    <tr><td class="num">A12, A13</td><td>ML 与 REML 结构一致</td><td>报告用 REML 却在 ML 下比较模型</td></tr>
+    <tr><td class="num">A14</td><td>KR 的分母自由度 ≠ containment</td><td><code>DDFM=KR</code> 没生效</td></tr>
+    <tr><td class="num">A15–A17</td><td>夹具含"无响应""单次访视""有脱落"三类受试者</td><td>主分析集与"实际进模型的集"混为一谈</td></tr>
+  </tbody>
+</table>
+
+<p>末尾还有一个<b>脆弱块</b>，由 <code>%let RUN_FRAGILE = 0;</code> 关掉：它把基线记录留在响应向量里再拟合
+一次，打印出 6 × 6 非结构化 <code>R</code> 的协方差参数。这个块的失败本身就是结论，所以它被放在最后、
+在日志里明确宣告，并且可以由调度跳过。</p>
+
+<div class="box note">
+  <span class="t">本机没有 SAS 会话</span>
+  <p>本笔记的每一条断言都可以被重跑，但<b>它们没有被重跑过</b>——写作环境里没有授权的 SAS。因此笔记里
+  没有一个数字是"某次运行的输出"。以下行为只有真实会话才能最终确认：UN 在本夹具上的收敛状态与具体
+  协方差参数估计值；KR 分母自由度的具体数值；<code>SLICE=</code> 输出的对比是否与
+  <code>PROC MIANALYZE</code> 路线一致；以及脆弱块究竟是报收敛失败还是给出一个零方差的参数估计。
+  如果你有许可证，跑一遍 <code>mmrm_check.sas</code>，17 条断言应当全部通过。</p>
+</div>
+
+<footer>
+  <p><b>证据的来源。</b>标注 <em class="ev">[doc]</em> 的来自 SAS 文档与 ICH / FDA 指南；
+  <em class="ev">[lit]</em> 的来自会议论文与期刊文献，列在下面；<em class="ev">[实践]</em> 的来自本笔记
+  附带程序所构造的夹具。<b>没有任何数字来自"我跑过一次"。</b></p>
+  <p><b>引用。</b> Kenward MG, Roger JH (1997), <i>Biometrics</i> 53:983–997 ·
+  Ratitch B, O'Kelly M (2012), PharmaSUG SP07, pattern-mixture models as linear combinations of LS-means ·
+  PharmaSUG (2015), SP02, macro for selecting a covariance structure by AIC / BIC ·
+  PharmaSUG China (2024), SA-10094, treatment-policy estimation for a continuous variable ·
+  PharmaSUG (2025), SA-231, unified SAS approach for oncology endpoints ·
+  PhUSE CSRMLW bookdown, §6 Mixed Models, SAS 与 R 的 MMRM 结果比对 ·
+  Schuler A (2021), arXiv:2108.06621, MMRM 需要包含时间 × 协变量交互（预印本） ·
+  Herrmann C 等, EMA 缺失数据指南落实情况的实证评估（39 个 II/III 期方案） ·
+  ICH E9(R1) Addendum on Estimands and Sensitivity Analysis (2019) ·
+  FDA, <i>Missing Data in Clinical Trials</i> (2023) ·
+  SAS Institute, <i>SAS/STAT User's Guide: The MIXED Procedure</i>。</p>
+  <p><b>与旧稿的差异。</b>本笔记取代了同目录下早期以 <code>PROC GLIMMIX</code> 为主过程的写法：MMRM 的
+  行业惯例是 <code>PROC MIXED</code>，<code>GLIMMIX</code> 留到非连续终点。同时更正了旧稿"基线 × 访视
+  交互可选"的结论（见 4.1），并把协方差结构的参数个数从"抄书"改为由校验程序数出。</p>
+</footer>
+
+</div>
+
+<!-- @@SPN-SHELL:JS:BEGIN@@ -->
+<script id="spn-shell-js">
+/* ==========================================================================
+   SAS Pattern Note — contents shell behaviour
+   1. builds the table of contents from .page h2 / h3 (no hand-maintained list)
+   2. highlights the heading you are reading
+   3. shows / hides the panel; the choice is remembered
+   Idempotent and dependency-free. Safe to refresh by re-running the injector.
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  var HIDDEN = 'spn-hidden';
+  var KEY = 'spn.toc.hidden';
+  var NARROW = 1080;
+
+  var body = document.body;
+  var toggle = document.querySelector('.spn-toggle');
+  var toc = document.querySelector('.spn-toc');
+  var nav = document.querySelector('.spn-toc-nav');
+  var scrim = document.querySelector('.spn-scrim');
+  if (!toggle || !toc || !nav) return;
+
+  /* ---------- collect headings ---------- */
+  var heads = [].slice.call(document.querySelectorAll('.page h2, .page h3'))
+    .filter(function (h) { return !h.classList.contains('spn-skip'); });
+
+  if (!heads.length) {                 /* nothing to navigate: get out of the way */
+    toc.style.display = 'none';
+    toggle.style.display = 'none';
+    if (scrim) scrim.style.display = 'none';
+    return;
+  }
+
+  var used = {};
+  function slug(text) {
+    var base = text.toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim().replace(/\s+/g, '-').replace(/-+/g, '-');
+    if (!base) base = 'section';
+    var n = used[base] = (used[base] || 0) + 1;
+    return n > 1 ? base + '-' + n : base;
+  }
+  function label(h) {
+    var text = h.textContent.replace(/\s+/g, ' ').trim();
+    var num = h.querySelector('.n');                 /* the "1" / "2" run-in numeral */
+    if (num) {
+      var t = num.textContent.trim();
+      if (t && text.indexOf(t) === 0) text = t + ' ' + text.slice(t.length).trim();
+    }
+    return text;
+  }
+
+  var links = heads.map(function (h) {
+    if (!h.id) h.id = slug(label(h));
+    var a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = label(h);
+    a.className = h.tagName === 'H3' ? 'spn-h3' : 'spn-h2';
+    nav.appendChild(a);
+    return a;
+  });
+
+  /* ---------- show / hide ---------- */
+  var lbl = toggle.querySelector('.lbl');
+  function paint() {
+    var hidden = body.classList.contains(HIDDEN);
+    if (lbl) lbl.textContent = hidden ? 'Contents' : 'Hide contents';
+    toggle.setAttribute('aria-expanded', String(!hidden));
+    if (scrim) scrim.setAttribute('aria-hidden', String(hidden));
+  }
+  function setHidden(v, remember) {
+    body.classList.toggle(HIDDEN, !!v);
+    paint();
+    if (remember) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {} }
+  }
+  toggle.addEventListener('click', function () {
+    setHidden(!body.classList.contains(HIDDEN), true);
+  });
+  if (scrim) scrim.addEventListener('click', function () { setHidden(true, true); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !body.classList.contains(HIDDEN) && window.innerWidth <= NARROW) {
+      setHidden(true, true);
+    }
+  });
+  nav.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('a') && window.innerWidth <= NARROW) setHidden(true, true);
+  });
+
+  /* ---------- restore ---------- */
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  setHidden(saved === null ? window.innerWidth <= NARROW : saved === '1', false);
+
+  /* ---------- reading position ---------- */
+  var ticking = false;
+  function sync() {
+    ticking = false;
+    var y = window.pageYOffset || document.documentElement.scrollTop;
+    var current = 0, i;
+    for (i = 0; i < heads.length; i++) {
+      if (heads[i].getBoundingClientRect().top <= 96) { current = i; } else { break; }
+    }
+    if (window.innerHeight + y >= document.documentElement.scrollHeight - 4) {
+      current = heads.length - 1;
+    }
+    for (i = 0; i < links.length; i++) links[i].classList.toggle('active', i === current);
+
+    if (!body.classList.contains(HIDDEN)) {              /* keep it in view inside the panel */
+      var el = links[current];
+      var top = el.offsetTop, view = toc.clientHeight;
+      if (top < toc.scrollTop + 24) toc.scrollTop = Math.max(0, top - 24);
+      else if (top + el.offsetHeight > toc.scrollTop + view - 40) toc.scrollTop = top - view + 80;
+    }
+  }
+  function onScroll() {
+    if (!ticking) { ticking = true; window.requestAnimationFrame(sync); }
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  sync();
+})();
+</script>
+<!-- @@SPN-SHELL:JS:END@@ -->
+</body>
+</html>
