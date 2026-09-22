@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linear Mixed Models 全书精读笔记（临床统计程序员视角）</title>
+<style>
+  :root{
+    --ink:#17181a;
+    --muted:#5b6570;
+    --faint:#8b949e;
+    --rule:#d8dde3;
+    --rule-soft:#eaeef2;
+    --accent:#1b4f8a;
+    --accent-soft:#eef3f8;
+    --emerald:#0f7b5f; --emerald-soft:#f0f7f4;
+    /* a pass is a conclusion, and conclusions are emerald — two greens a few
+       degrees apart would read as a mistake */
+    --ok:var(--emerald);      --ok-bg:var(--emerald-soft);
+    --cav:#8a5a00;     --cav-bg:#fdf7ec;
+    --bad:#9a2b2b;     --bad-bg:#fdf3f3;
+    --code-bg:#f7f8f9;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; padding:0 24px 96px;
+    background:#ffffff; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px; line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:880px;margin:0 auto;}
+
+  /* ---------- masthead ---------- */
+  header.mast{position:relative;padding:52px 0 22px;}
+  /* the one place the two hues meet, half and half — indigo for the left,
+     emerald for the right. Drawn as a background bar so the hard stop lands
+     cleanly, and the extra 2px of padding absorbs the border it replaces. */
+  header.mast::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+    background:linear-gradient(90deg,var(--accent) 0 50%,var(--emerald) 50% 100%);}
+  .kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:14px;}
+  h1{font-size:31px;line-height:1.22;letter-spacing:-.015em;margin:0 0 14px;font-weight:700;}
+  .deck{font-size:16.5px;line-height:1.55;color:var(--muted);margin:0 0 22px;max-width:760px;}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px 28px;font-size:12.5px;color:var(--muted);padding-top:16px;border-top:1px solid var(--rule-soft);}
+  .meta-row b{color:var(--ink);font-weight:600;}
+
+  /* ---------- sections ---------- */
+  /* no ornament: the numeral and the 56px of space above it carry the hierarchy */
+  h2{font-size:20px;margin:56px 0 6px;font-weight:700;letter-spacing:-.01em;}
+  h2 .n{color:var(--accent);margin-right:10px;font-variant-numeric:tabular-nums;}
+  h2 + .lede{color:var(--muted);font-size:14.5px;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid var(--rule-soft);}
+  h3{font-size:15.5px;margin:32px 0 8px;font-weight:700;}
+  h4{font-size:14px;margin:22px 0 6px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;}
+  p{margin:11px 0;}
+  a{color:var(--accent);}
+  ul,ol{margin:11px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  /* a list is an enumeration of findings */
+  li::marker{color:var(--emerald);}
+  ol li::marker{font-weight:600;}
+  blockquote{margin:16px 0;padding:2px 0 2px 18px;border-left:2px solid var(--emerald);
+             color:var(--muted);font-style:italic;}
+  code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+       font-size:12.6px;background:#f0f2f4;border:1px solid #e2e6ea;border-radius:3px;padding:1px 4px;}
+
+  /* ---------- code ---------- */
+  pre{margin:14px 0;background:var(--code-bg);border:1px solid var(--rule-soft);
+      border-left:3px solid var(--accent);border-radius:4px;padding:14px 16px;overflow-x:auto;}
+  pre code{background:none;border:none;padding:0;font-size:12.4px;line-height:1.62;color:#1f2328;white-space:pre;}
+  .cm{color:#6f7883;}
+  .kw{color:#0b3d68;font-weight:600;}
+  .mk{color:#8a5a00;font-weight:700;}
+
+  /* ---------- tables ---------- */
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.4px;}
+  thead th{
+    text-align:left;padding:9px 12px 8px;font-weight:700;font-size:12.4px;
+    border-top:2px solid var(--emerald);border-bottom:1px solid var(--emerald);
+    background:var(--emerald-soft);color:var(--ink);vertical-align:bottom;
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--rule-soft);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:2px solid var(--emerald);}
+  td code,th code{font-size:12px;}
+  .num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+
+  /* ---------- status pills ---------- */
+  .pill{display:inline-block;font-size:10.6px;font-weight:700;letter-spacing:.07em;
+        text-transform:uppercase;padding:2px 7px;border-radius:3px;border:1px solid;white-space:nowrap;}
+  .ok{color:var(--ok);background:var(--ok-bg);border-color:#c2ddd4;}
+  .cav{color:var(--cav);background:var(--cav-bg);border-color:#e8d3a8;}
+  .bad{color:var(--bad);background:var(--bad-bg);border-color:#ecc4c4;}
+
+  /* ---------- callouts ---------- */
+  .box{margin:18px 0;padding:14px 18px;border-radius:4px;font-size:14px;background:#f7f8f9;border:1px solid var(--rule-soft);}
+  .box .t{display:block;font-weight:700;font-size:12.4px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;color:var(--muted);}
+  .box.note{background:var(--accent-soft);border-color:#cfdff0;}
+  .box.note .t{color:var(--accent);}
+  .box.finding{background:#fff;border:1px solid var(--rule);border-left:3px solid var(--cav);}
+  .box.finding .t{color:var(--cav);}
+  /* the block a reader is meant to leave with */
+  .box.takeaway{background:#fff;border:1px solid var(--rule);border-left:3px solid var(--emerald);}
+  .box.takeaway .t{color:var(--emerald);}
+  .box p:first-of-type{margin-top:0;}
+  .box p:last-child{margin-bottom:0;}
+
+  /* ---------- figure ---------- */
+  figure{margin:26px 0;}
+  figure svg{width:100%;height:auto;display:block;}
+  figcaption{font-size:13px;color:var(--muted);margin-top:12px;line-height:1.55;padding-top:10px;border-top:1px solid var(--rule-soft);}
+  /* the figure number is a citation; the metadata labels are provenance */
+  figcaption b{color:var(--emerald);}
+  .meta-row b{color:var(--emerald);}
+  /* a note writes [doc], [lit] or [实践] inside an <em class="ev"> and the tag
+     reads as a tag instead of as emphasis — the wash is what makes it survive
+     being read past */
+  em.ev{font-style:normal;font-weight:600;color:var(--emerald);letter-spacing:.01em;
+        background:var(--emerald-soft);border-radius:3px;padding:1px 5px;}
+
+  /* ---------- misc ---------- */
+  .small{font-size:12.8px;color:var(--muted);}
+  hr{border:none;border-top:1px solid var(--rule-soft);margin:34px 0;}
+  /* bookends the note in the second hue, at the weight of the table rules */
+  footer{margin-top:64px;padding-top:18px;border-top:2px solid var(--emerald);
+         font-size:12.6px;color:var(--faint);}
+
+  /* ---------- print: backgrounds do not print unless asked ---------- */
+  @media print{
+    thead th{background:transparent;}
+    header.mast::after{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+</style>
+
+<!-- @@SPN-SHELL:CSS:BEGIN@@ -->
+<style id="spn-shell-css">
+/* ==========================================================================
+   SAS Pattern Note — collapsible left-hand contents shell
+   Appended to a note's own <style> block by scripts/add_toc_shell.py.
+   Assumes the note defines these custom properties (falls back if not):
+     --ink --muted --faint --rule --rule-soft
+     --accent --accent-soft --emerald --emerald-soft
+   ========================================================================== */
+
+:root { --sbw: 272px; }
+
+/* ---------- trigger ---------- */
+.spn-toggle {
+  position: fixed; z-index: 70; top: 14px; left: 14px;
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 600 12.2px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  letter-spacing: .02em;
+  color: var(--ink, #17181a); background: #fff;
+  border: 1px solid var(--rule, #d8dde3); border-radius: 6px;
+  padding: 8px 11px; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(23, 24, 26, .08);
+}
+.spn-toggle:hover { border-color: var(--accent, #1b4f8a); color: var(--accent, #1b4f8a); }
+.spn-toggle:focus-visible { outline: 2px solid var(--accent, #1b4f8a); outline-offset: 2px; }
+.spn-toggle .bars { font-size: 13px; line-height: 1; }
+
+/* ---------- sidebar ---------- */
+.spn-toc {
+  position: fixed; z-index: 60; top: 0; left: 0; bottom: 0; width: var(--sbw);
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  background: #fff; border-right: 1px solid var(--rule-soft, #eaeef2);
+  padding: 60px 8px 48px 22px;
+  transition: transform .22s ease;
+}
+.spn-toc::-webkit-scrollbar { width: 8px; }
+.spn-toc::-webkit-scrollbar-thumb { background: #dbe1e8; border-radius: 4px; }
+/* the panel's title keeps a short emerald tick. It is the only mark of its kind
+   left on the page, which is what makes it read as the drawer's own starting point */
+.spn-toc-title {
+  position: relative;
+  margin: 0 0 12px; padding-left: 10px;
+  font-size: 10.6px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--faint, #8b949e);
+}
+.spn-toc-title::before {
+  content: ""; position: absolute; top: -9px; left: 10px;
+  width: 18px; height: 3px; border-radius: 2px;
+  background: var(--emerald, #0f7b5f);
+}
+.spn-toc-nav { font-size: 12.9px; line-height: 1.42; }
+.spn-toc-nav a {
+  display: block; text-decoration: none; color: var(--muted, #5b6570);
+  padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 3px 3px 0;
+}
+/* inside the panel the second hue means "here" — the entry you are pointing at,
+   or the one you are reading. Navigation itself stays indigo (the trigger). */
+.spn-toc-nav a:hover { color: var(--emerald, #0f7b5f); background: var(--emerald-soft, #f0f7f4); }
+.spn-toc-nav a.spn-h3 { padding-left: 24px; font-size: 12.2px; }
+.spn-toc-nav a.spn-h2 { font-weight: 600; color: var(--ink, #17181a); }
+.spn-toc-nav a.active {
+  color: var(--emerald, #0f7b5f); font-weight: 600; background: var(--emerald-soft, #f0f7f4);
+  border-left-color: var(--emerald, #0f7b5f);
+}
+.spn-toc-foot {
+  margin-top: 22px; padding: 12px 10px 0;
+  border-top: 1px solid var(--rule-soft, #eaeef2);
+  font-size: 11px; line-height: 1.5; color: var(--faint, #8b949e);
+}
+
+/* ---------- content shift (wide screens) ---------- */
+html body { padding-left: var(--sbw); transition: padding-left .22s ease; }
+html body.spn-hidden { padding-left: 0; }
+html body.spn-hidden .spn-toc { transform: translateX(-100%); }
+
+/* ---------- scrim (only meaningful when the sidebar overlays content) ---------- */
+.spn-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(23, 24, 26, .28); display: none; }
+
+/* ---------- narrow: overlay drawer instead of pushing the text ---------- */
+@media (max-width: 1080px) {
+  html body { padding-left: 0; }
+  .spn-toc { transform: translateX(-100%); box-shadow: 0 8px 40px rgba(23, 24, 26, .18); }
+  html body:not(.spn-hidden) .spn-toc { transform: translateX(0); }
+  html body:not(.spn-hidden) .spn-scrim { display: block; }
+}
+
+/* ---------- print: contents are navigation, not content ---------- */
+@media print {
+  .spn-toc, .spn-toggle, .spn-scrim { display: none !important; }
+  html body { padding-left: 0 !important; }
+}
+
+/* ---------- anchors ---------- */
+.page h1, .page h2, .page h3, .page h4 { scroll-margin-top: 16px; }
+
+/* ---------- very small screens ---------- */
+@media (max-width: 520px) {
+  .spn-toggle .lbl { display: none; }
+}
+</style>
+<!-- @@SPN-SHELL:CSS:END@@ -->
+</head>
+<body>
+<!-- @@SPN-SHELL:DOM:BEGIN@@ -->
+<button class="spn-toggle" type="button" aria-controls="spnToc"
+        aria-expanded="true" title="Show or hide the contents (Esc)">
+  <span class="bars" aria-hidden="true">&#9776;</span><span class="lbl">Contents</span>
+</button>
+<aside class="spn-toc" id="spnToc" aria-label="Contents">
+  <div class="spn-toc-title">Contents</div>
+  <nav class="spn-toc-nav"></nav>
+  <div class="spn-toc-foot">全书 9 章 · 16 节 · 配套 mmrm-clinical-note.html</div>
+</aside>
+<div class="spn-scrim" aria-hidden="true"></div>
+<!-- @@SPN-SHELL:DOM:END@@ -->
+
+
+<div class="page">
+
+<header class="mast">
+  <div class="kicker">精读笔记 &middot; West, Welch &amp; Galecki (3rd ed.)</div>
+  <h1>《Linear Mixed Models: A Practical Guide Using Statistical Software》全书精读笔记 —— 读给临床统计程序员</h1>
+  <p class="deck">这本书的九个案例来自动物实验、课堂研究和牙科，但它讲的数据结构与临床试验完全同构：聚类、重复测量、
+  纵向、聚类纵向。这份笔记按原书章节推进，每一章补三件书里没有的东西——<b>这个概念在试验里对应什么</b>、
+  <b>SAS 怎么写</b>、<b>哪里会踩坑</b>。配套的
+  <a href="mmrm-clinical-note.html">MMRM clinical note</a> 是第 2、6、7 章交汇处那一段生产代码的完整展开。</p>
+  <div class="meta-row">
+    <span><b>底本</b> &nbsp;第 3 版（SAS 9.4 / SPSS 28 / Stata 17 / R 4.1.2 / HLM 8）</span>
+    <span><b>改写</b> &nbsp;案例数据集替换为去标识化的 ADaM 形态；研究编号以 <code>NNNN</code> 代替</span>
+  </div>
+</header>
+
+<div class="box note" style="margin-top:26px;">
+  <span class="t">这份笔记不是什么</span>
+  <p class="small">它不是原书的替代品，也不复述每个公式的推导。它记录的是<b>读完一章之后应该留下的判断力</b>：
+  什么时候该用哪个结构、软件默认在什么地方骗你、以及书里的动物实验案例怎样翻译成多中心试验的语言。
+  需要完整推导时回到原书；需要能直接跑的代码时看
+  <a href="mmrm-clinical-note.html">MMRM clinical note</a> 和它的
+  <a href="mmrm_check.sas"><code>mmrm_check.sas</code></a>。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">1</span>全书地图：九个案例，四种数据形状</h2>
+<p class="lede">先把书的骨架看清，再读各章就不会混。</p>
+
+<p>这本书的结构是<b>"方法 + 软件 + 案例"三线并行</b>：第 2 章讲方法，第 3–8 章每章一个案例、换一个软件，
+第 9 章讲功效。它的真正价值在于——<b>六种数据形状各给了一个完整的可复现分析</b>。</p>
+
+<table>
+  <thead><tr><th style="width:52px;">章</th><th style="width:150px;">数据形状</th><th style="width:150px;">书的案例</th><th style="width:96px;">软件</th><th>临床试验里的对应物</th></tr></thead>
+  <tbody>
+    <tr><td class="num">3</td><td>两水平聚类</td><td>幼鼠 ∈ 窝（出生体重）</td><td>SAS</td><td>受试者 ∈ 中心；中心间变异、ICC</td></tr>
+    <tr><td class="num">4</td><td>三水平聚类</td><td>学生 ∈ 教室 ∈ 学校</td><td>HLM</td><td>受试者 ∈ 中心 ∈ 地区/国家</td></tr>
+    <tr><td class="num">5</td><td>重复测量</td><td>大鼠脑区 × 处理</td><td>SPSS</td><td>同一受试者的多个部位/多次实验室测量</td></tr>
+    <tr><td class="num">6</td><td><b>纵向</b></td><td>自闭症儿童 2/3/5/9/13 岁</td><td>R</td><td><b>多次访视的疗效终点 → MMRM 主分析</b></td></tr>
+    <tr><td class="num">7</td><td>聚类纵向</td><td>牙贴面（牙齿 ∈ 患者 × 3/6 月）</td><td>Stata</td><td>多中心 + 多次访视；协方差结构建模</td></tr>
+    <tr><td class="num">8</td><td>交叉随机效应</td><td>SAT 成绩（学生 × 教师）</td><td>R</td><td>评估者 × 受试者交叉</td></tr>
+    <tr><td class="num">9</td><td>—</td><td>功效与样本量</td><td>多软件</td><td>设计效应、脱落对功效的影响</td></tr>
+  </tbody>
+</table>
+
+<div class="box">
+  <span class="t">读法建议</span>
+  <p>如果你只关心临床试验的疗效终点，<b>第 2 章 + 第 6 章 + 第 7 章</b> 是核心三角，第 3 章（中心效应）和第 9 章
+  （功效）按需。第 4、5、8 章解决的是"数据比我想的更嵌套/更交叉"的情形。第 2 章是全书的密度最高处，
+  值得读两遍——第二遍是为了第 2.3 节的<b>隐含边际模型</b>，那是理解 MMRM 的钥匙。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">2</span>第 1 章 导论：LMM 到底解决了什么问题</h2>
+<p class="lede">一句话定位，以及全书最关键的一次区分。</p>
+
+<p>普通线性模型要求<b>残差独立、方差恒定</b>。聚类数据和纵向数据天生违反它：同一中心的受试者彼此更像，
+同一受试者的多次访视彼此更像。忽略这一点不会让点估计明显偏，但会<b>严重低估标准误</b>——把本不显著的结果
+做成显著。LMM 的做法是把这种相依结构<b>显式建模</b>，而不是假装不存在。</p>
+
+<h3>2.1 固定效应 vs 随机效应</h3>
+
+<table>
+  <thead><tr><th style="width:120px;">维度</th><th style="width:270px;">固定效应</th><th>随机效应</th></tr></thead>
+  <tbody>
+    <tr><td>数学身份</td><td>未知<b>常数</b>参数</td><td>不可观测的<b>随机变量</b>（通常假定正态）</td></tr>
+    <tr><td>典型变量</td><td>治疗组、性别、基线值、年龄</td><td>中心、诊所、教室、窝、受试者</td></tr>
+    <tr><td>研究兴趣</td><td>参数本身（回归系数）</td><td>效应的<b>变异程度</b>（方差分量）</td></tr>
+    <tr><td>水平来源</td><td>研究者关心的全部水平</td><td>从更大总体中<b>抽样</b>得到的水平</td></tr>
+    <tr><td>能否预测</td><td>直接估计</td><td>可给出每组的 <b>EBLUP</b></td></tr>
+  </tbody>
+</table>
+
+<div class="box takeaway">
+  <span class="t">判断口诀</span>
+  <p>把这批水平换成另一批（换个中心、换个教室），结论还应该成立、而且这些水平本身不是研究对象 →
+  <b>随机效应</b>。这些水平就是你关心的全部（试验组 vs 对照组）→ <b>固定效应</b>。
+  <b>治疗组永远不应该是随机效应。</b>判断标准不是"水平数多少"，而是"要不要把结论推广到该因子的更大总体"。</p>
+</div>
+
+<h3>2.2 在试验里的落点</h3>
+
+<table>
+  <thead><tr><th style="width:210px;">书中的数据</th><th style="width:180px;">临床对应</th><th>建模含义</th></tr></thead>
+  <tbody>
+    <tr><td>幼鼠 ∈ 同一窝</td><td>受试者 ∈ 同一中心</td><td>中心 = 随机截距，估计中心间变异</td></tr>
+    <tr><td>学生 ∈ 教室 ∈ 学校</td><td>受试者 ∈ 中心 ∈ 地区</td><td>三水平嵌套</td></tr>
+    <tr><td>大鼠脑多次测量</td><td>受试者多次访视</td><td>重复测量 / MMRM 的原型</td></tr>
+    <tr><td>自闭症儿童生长曲线</td><td>纵向终点随时间变化</td><td>随机截距 + 随机斜率</td></tr>
+    <tr><td>牙贴面（聚类 + 纵向）</td><td>多中心 + 多次访视</td><td>随机效应 + 相关残差并存</td></tr>
+    <tr><td>随机区组设计</td><td>交叉试验的序列 / 周期</td><td>区组作为随机效应</td></tr>
+  </tbody>
+</table>
+
+<p>三个实践要点。<b>中心效应</b>：多中心试验里中心通常作随机截距，但监管关注的是<b>总体治疗效应</b>，
+不建议过度解读单个中心的 EBLUP。<b>ICC</b>（组内相关系数）刻画"中心间变异占总变异的比例"，越大越不能
+忽略聚类结构。<b>EBLUP</b> 可用于中心层面的质量监测（发现异常中心），但不该作为疗效结论的依据。</p>
+
+<div class="box finding">
+  <span class="t">易错：群组数太少还硬上随机效应</span>
+  <p>中心数很少（如 &lt; 10–15）时方差分量估计极不稳定，甚至估成 0。三个中心去估一个"中心间方差"，
+  是在估一个几乎不可识别的参数。此时更稳妥的是把中心当<b>固定效应</b>，或转向 GEE 类方法。
+  这条在真实试验里比书里讲的更常遇到——因为很多 II 期试验中心数就是个位数。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">3</span>第 2 章（上）：四类数据与模型设定</h2>
+<p class="lede">选模型的前提是把数据形状叫对名字。</p>
+
+<h3>3.1 四类数据</h3>
+
+<table>
+  <thead><tr><th style="width:110px;">类型</th><th style="width:230px;">定义</th><th style="width:150px;">临床例子</th><th>关键关切</th></tr></thead>
+  <tbody>
+    <tr><td>聚类数据</td><td>每个分析单位<b>只测一次</b>，嵌套于群组</td><td>受试者 ∈ 中心</td><td>群组间变异、ICC</td></tr>
+    <tr><td>重复测量数据</td><td>同一单位在重复测量因子各水平下多次测量</td><td>同一受试者的多个部位</td><td>相关结构；<b>脱落通常不是问题</b></td></tr>
+    <tr><td><b>纵向数据</b></td><td>多时间点测量，时间跨度较长</td><td>多次访视的疗效终点</td><td><b>脱落是核心关切</b></td></tr>
+    <tr><td>聚类纵向</td><td>嵌套 + 多次测量同时存在</td><td>多中心 + 多次访视</td><td>随机效应与相关残差并存</td></tr>
+  </tbody>
+</table>
+
+<p><b>重复测量与纵向的界线值得单独记</b>：前者缺失通常只因仪器故障，后者缺失主要来自患者脱落。
+后者直接决定你要不要为缺失数据假设辩护——这是试验里几乎全部的情形。</p>
+
+<figure>
+<svg viewBox="0 0 680 210" role="img" aria-label="四种数据形状：聚类、重复测量、纵向、聚类纵向">
+  <g font-family="-apple-system,Segoe UI,'PingFang SC','Microsoft YaHei',Helvetica,Arial,sans-serif">
+    <text x="16" y="16" font-size="11.5" font-weight="700" fill="#17181a">同一份"相关"，四种来源</text>
+
+    <rect x="16" y="30" width="150" height="80" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="91" y="48" font-size="11" font-weight="700" text-anchor="middle" fill="#1b4f8a">聚类</text>
+    <text x="91" y="64" font-size="9.5" text-anchor="middle" fill="#5b6570">受试者 ∈ 中心</text>
+    <circle cx="52" cy="88" r="4" fill="#0f7b5f"/><circle cx="70" cy="88" r="4" fill="#0f7b5f"/>
+    <circle cx="112" cy="88" r="4" fill="#8b949e"/><circle cx="130" cy="88" r="4" fill="#8b949e"/>
+    <text x="91" y="104" font-size="9" text-anchor="middle" fill="#8b949e">组内更像</text>
+
+    <rect x="182" y="30" width="150" height="80" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="257" y="48" font-size="11" font-weight="700" text-anchor="middle" fill="#1b4f8a">重复测量</text>
+    <text x="257" y="64" font-size="9.5" text-anchor="middle" fill="#5b6570">多部位 / 多条件</text>
+    <rect x="222" y="80" width="14" height="14" fill="#0f7b5f"/><rect x="240" y="80" width="14" height="14" fill="#0f7b5f"/>
+    <rect x="258" y="80" width="14" height="14" fill="#0f7b5f"/><rect x="276" y="80" width="14" height="14" fill="#0f7b5f"/>
+    <text x="257" y="104" font-size="9" text-anchor="middle" fill="#8b949e">同一单位内相关</text>
+
+    <rect x="348" y="30" width="150" height="80" rx="4" fill="#f0f7f4" stroke="#0f7b5f" stroke-width="1.5"/>
+    <text x="423" y="48" font-size="11" font-weight="700" text-anchor="middle" fill="#0f7b5f">纵向</text>
+    <text x="423" y="64" font-size="9.5" text-anchor="middle" fill="#17181a">多次访视 + 脱落</text>
+    <rect x="388" y="80" width="14" height="14" fill="#0f7b5f"/><rect x="406" y="80" width="14" height="14" fill="#0f7b5f"/>
+    <rect x="424" y="80" width="14" height="14" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+    <rect x="442" y="80" width="14" height="14" fill="#ffffff" stroke="#dfe5ea" stroke-dasharray="3 3"/>
+    <text x="423" y="104" font-size="9" text-anchor="middle" fill="#8b949e">脱落是核心关切</text>
+
+    <rect x="514" y="30" width="150" height="80" rx="4" fill="#ffffff" stroke="#c9d2dc"/>
+    <text x="589" y="48" font-size="11" font-weight="700" text-anchor="middle" fill="#1b4f8a">聚类纵向</text>
+    <text x="589" y="64" font-size="9.5" text-anchor="middle" fill="#5b6570">多中心 + 多次访视</text>
+    <rect x="554" y="80" width="14" height="14" fill="#0f7b5f"/><rect x="572" y="80" width="14" height="14" fill="#0f7b5f"/>
+    <rect x="590" y="80" width="14" height="14" fill="#eef3f8" stroke="#1b4f8a"/><rect x="608" y="80" width="14" height="14" fill="#eef3f8" stroke="#1b4f8a"/>
+    <text x="589" y="104" font-size="9" text-anchor="middle" fill="#8b949e">随机效应 + 相关残差</text>
+
+    <text x="16" y="136" font-size="10" fill="#5b6570">四个格子填的都是同一件事：同一个"组"里的观测彼此更像。差别只在于那个组是什么——</text>
+    <text x="16" y="152" font-size="10" fill="#5b6570">中心、受试者、受试者随时间、还是两者叠加。选错格子，模型就错在根上。</text>
+    <text x="16" y="176" font-size="10" fill="#0f7b5f">绿色实块 = 已观测；虚线格 = 脱落；蓝框 = 另一层嵌套。</text>
+  </g>
+</svg>
+<figcaption><b>Figure 1 |</b> 四种数据形状。临床试验里几乎总是第三种或第四种——也就是必须处理脱落的那两种。</figcaption>
+</figure>
+
+<h3>3.2 矩阵形式（全书的核心式子）</h3>
+
+<pre><code>Y_i = X_i * beta + Z_i * u_i + e_i
+
+u_i ~ N(0, D)      随机效应的协方差
+e_i ~ N(0, R_i)    残差的协方差</code></pre>
+
+<table>
+  <thead><tr><th style="width:96px;">符号</th><th>含义与它对临床的所指</th></tr></thead>
+  <tbody>
+    <tr><td><code>Y&#8341;</code></td><td>第 i 个对象的因变量向量，<b>长度可因对象而异</b>——这正是 LMM 能吃不平衡数据的原因</td></tr>
+    <tr><td><code>X&#8341;</code></td><td>固定效应设计矩阵（<span class="num">n&#8341; × p</span>）。含截距时第一列全为 1</td></tr>
+    <tr><td><code>β</code></td><td>p 个固定效应参数——治疗效应住在这里</td></tr>
+    <tr><td><code>Z&#8341;</code></td><td>随机效应设计矩阵（<span class="num">n&#8341; × q</span>）。<b>列数通常少于 <code>X&#8341;</code></b>；只有随机截距时就是一列 1</td></tr>
+    <tr><td><code>D</code></td><td><span class="num">q × q</span> 对称正定，随机效应的方差协方差</td></tr>
+    <tr><td><code>R&#8341;</code></td><td><span class="num">n&#8341; × n&#8341;</span> 对称正定，残差协方差</td></tr>
+  </tbody>
+</table>
+
+<p><b>与标准线性模型的唯一根本差别</b>：同一对象各次观测的残差<b>可以相关</b>；不同对象之间残差独立；
+残差与随机效应独立。剩下的一切都是这个假设的推论 <em class="ev">[doc]</em>。</p>
+
+<h3>3.3 嵌套 vs 交叉</h3>
+<p>嵌套 = A 的某水平只能出现在 B 的一个水平内（教室 ∈ 学校）。交叉 = A 的某水平可跨 B 的多个水平测量
+（处理 × 性别）。<b>多中心试验里受试者嵌套于中心</b>；但如果受试者在不同访视由<b>不同评估者</b>评估，
+评估者与受试者是<b>交叉</b>的。搞错会直接导致模型错误，而且不会报错。</p>
+
+<p>交叉效应还有一个工程含义：设计矩阵不再是分块对角，计算量显著更大。R 的 <code>lmer()</code> 与
+SAS 的 <code>PROC HPMIXED</code> 用稀疏矩阵优化，大数据 + 交叉因子时优先用这两个。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">4</span>第 2 章（中）：协方差结构——D 与 R</h2>
+<p class="lede">全书最实用的一节，也是最容易因为"忘了写"而出错的地方。</p>
+
+<h3>4.1 两个矩阵，两套选择</h3>
+
+<table>
+  <thead><tr><th style="width:118px;">矩阵</th><th style="width:158px;">结构</th><th style="width:88px;">参数个数</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td><code>D</code>（随机效应）</td><td>非结构化 UN</td><td><span class="num">q(q+1)/2</span></td><td>方差、协方差全部自由估计。随机系数模型常用</td></tr>
+    <tr><td><code>D</code></td><td>方差分量 VC</td><td><span class="num">q</span></td><td>各有自己的方差，<b>协方差全设为 0</b>——即假定各随机效应不相关</td></tr>
+    <tr><td><code>R&#8341;</code>（残差）</td><td>对角 Diagonal</td><td class="num">1</td><td><span class="pill bad">默认</span> 残差独立同方差，<code>σ²I</code></td></tr>
+    <tr><td><code>R&#8341;</code></td><td>复合对称 CS</td><td class="num">2</td><td>任意两次观测相关相同、方差恒定</td></tr>
+    <tr><td><code>R&#8341;</code></td><td>AR(1)</td><td class="num">2</td><td>相隔 k 单位的协方差 <span class="num">= σ²ρᵏ</span>；<b>隐含等间隔</b></td></tr>
+    <tr><td><code>R&#8341;</code></td><td>Toeplitz</td><td><span class="num">2K − 1</span></td><td>每条对角线各自一个参数，比 AR(1) 灵活</td></tr>
+  </tbody>
+</table>
+
+<div class="box finding">
+  <span class="t">最重要的一个事实</span>
+  <p><b>本书讨论的所有软件过程，都把对角结构作为 <code>R&#8341;</code> 的默认。</b>不显式指定就等于
+  <span class="num">R&#8341; = σ²I</span>——纵向数据的时间相关<b>根本没被建模</b>，标准误仍然错
+  <em class="ev">[doc]</em>。
+  在试验里这意味着：写了 <code>RANDOM</code> 却没写 <code>REPEATED</code>，或者写了
+  <code>REPEATED</code> 却漏了 <code>TYPE=</code>，跑出来的是一个看起来正常、结论错误的模型。</p>
+</div>
+
+<h3>4.2 随机截距 vs 随机斜率</h3>
+<p>只加<b>随机截距</b> = 假定"每个受试者的基线不同，但治疗效应相同"。加<b>随机斜率</b>才允许
+"每个受试者的时间/治疗效应不同"。选错会错误地约束个体间差异——这在探索"哪些人应答更好"时是致命的，
+但在估计总体平均治疗效应时，随机斜率往往不是必需的。<b>这个取舍由 estimand 决定，不是由拟合优度决定。</b></p>
+
+<h3>4.3 组特异协方差</h3>
+<p>书里第 3、5、7 章都有实例：不同组（如男女、不同治疗组）的 <code>D</code>、<code>R&#8341;</code>
+结构相同但<b>参数取值不同</b>，用于建模异方差。SAS 用 <code>GROUP=</code> 实现。</p>
+
+<pre><code><span class="kw">repeated</span> avisitn / <span class="kw">subject</span>=usubjid <span class="kw">type</span>=un <span class="kw">group</span>=trtp;</code></pre>
+
+<p>临床场景：试验组应答更离散时，允许两组的方差不同。<b>代价是参数翻倍</b>，且它必须是 SAP 里预先声明的
+决定——看到残差图不漂亮再加，就是事后挑选。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">5</span>第 2 章（下）：边际模型、ML/REML、Kenward–Roger</h2>
+<p class="lede">理解 MMRM 的钥匙。这一节值得读两遍。</p>
+
+<h3>5.1 隐含边际模型</h3>
+<p>带随机效应的 LMM 对 <code>u&#8341;</code> 积分掉，得到</p>
+
+<pre><code>V_i = Z_i D Z_i<span class="mk">' + R_i</span></code></pre>
+
+<p>三个要点：（一）LMM 与其隐含边际模型<b>共享同一组协方差参数</b>；（二）<b>LMM 的约束更严</b>——LMM 要求
+<code>D</code> 和 <code>R&#8341;</code> 各自正定，隐含边际模型只要求 <code>V&#8341;</code> 正定；
+（三）LMM 的估计实际是在隐含边际模型的框架内完成的。</p>
+
+<div class="box takeaway">
+  <span class="t">由此得到的实用推论</span>
+  <p><b>随机截距 + 方差恒定的残差，其隐含边际模型就是复合对称（CS） <em class="ev">[doc]</em>。</b>所以"加随机截距"与"直接指定 CS
+  残差结构"在线性模型下是同一个模型——差别只在你想推断什么。这句话同时解释了为什么 MMRM 不写
+  <code>RANDOM</code>：它跳过了中间那一步，直接建模 <code>V&#8341;</code>。</p>
+</div>
+
+<h3>5.2 两条铁律</h3>
+
+<table>
+  <thead><tr><th style="width:150px;">检验对象</th><th style="width:110px;">用什么估计</th><th>原因</th></tr></thead>
+  <tbody>
+    <tr><td><b>固定效应</b></td><td><span class="pill ok">ML</span></td><td>REML 的似然依赖固定效应设计矩阵，比较不同固定效应模型时似然值不可比</td></tr>
+    <tr><td><b>协方差参数</b></td><td><span class="pill ok">REML</span></td><td>REML 修正了 ML 因估计固定效应损失自由度而对方差分量的低估</td></tr>
+  </tbody>
+</table>
+
+<p>还有一条常被违反的前提：<b>LRT 的两个模型必须拟合于同一个数据子集</b>。有缺失时，不同协变量会导致模型
+自动剔除的观测不同，此时似然值不可比——必须先固定同一个分析集。</p>
+
+<h3>5.3 固定效应标准误被低估，以及 KR</h3>
+<p>无论 ML 还是 REML，<span class="num">Var(β&#770;)</span> 都因为用 <code>V&#770;</code> 代替真实
+<code>V</code> 而<b>向下偏倚</b>；ML 因为 <code>V&#770;</code> 本身有偏，问题更重。
+<b>Kenward &amp; Roger (1997)</b> 的调整把 <code>V&#770;</code> 的变异也计入，并给出近似的分母自由度
+<em class="ev">[lit]</em>。</p>
+
+<div class="box">
+  <span class="t">在试验里这意味着</span>
+  <p>样本量只有几百、访视缺失又严重的 II/III 期试验，<code>DDFM=KR</code> 是把 I 类错误压回名义水平的手段，
+  不是可选项。配套的 <code>mmrm_check.sas</code> 有一条断言专门确认 KR 的分母自由度确实与默认的
+  containment 不同——如果相同，说明选项没生效。</p>
+</div>
+
+<h3>5.4 非正定（Not Positive Definite）</h3>
+<p>协方差参数估计可能收敛到参数空间边界甚至边界之外，导致 <code>G</code> 估计非正定。诱因有三：数据性质、
+组内观测过于相似、<b>模型设定错误</b>。处理顺序：</p>
+
+<ol>
+  <li><b>换初值</b>——或先用 EM 迭代取初值。</li>
+  <li><b>重新缩放协变量</b>——参数量级相差几个数量级时小的那个容易被推到边界。例：研究持续数天却用<b>分钟</b>
+  记录时间 → 时间方差分量极小 → 改成<b>小时</b>可显著改善数值稳定性。<b>这一条在真实项目里最常被忽略。</b></li>
+  <li><b>去掉不必要的随机效应</b>——通常先去高阶项。但也有例外：第 6 章自闭症分析先去掉截距的随机效应、
+  保留年龄线性和二次项的随机效应，这需要充分论证。</li>
+  <li><b>改拟合隐含边际模型</b>——约束更少。</li>
+  <li>SAS 的 <code>NOBOUND</code> 去掉正定性约束。</li>
+  <li><b>直接拟合非结构化边际模型</b>——所有对象在相同的少数时间点测量时的标准做法（即 MMRM）。</li>
+</ol>
+
+<p>后两条（边际模型）<b>不能对随机效应及其方差做推断</b>，且同样不保证收敛。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">6</span>第 2 章（末）：检验、信息准则、诊断、EBLUP/ICC/混叠</h2>
+
+<h3>6.1 模型构建的两条路线</h3>
+<table>
+  <thead><tr><th style="width:130px;">路线</th><th style="width:120px;">起点</th><th>步骤与风险</th></tr></thead>
+  <tbody>
+    <tr><td><b>自上而下</b><br>（Verbeke &amp; Molenberghs）</td><td>最饱和的<br>均值结构</td><td>先定固定效应 → 再选 <code>D</code> → 再选 <code>R&#8341;</code> → 最后简化均值。<b>临床试验应当走这条</b>：均值结构由 SAP 定死，不为拟合优度让路。</td></tr>
+    <tr><td><b>逐步向上</b><br>（HLM 派系）</td><td>空模型</td><td>无条件均值 → 加 Level-1 预测变量 → 随机系数检验 → 加 Level-2 解释变量。探索性研究常用；<b>在确证试验里会破坏 α 控制</b>。</td></tr>
+  </tbody>
+</table>
+
+<h3>6.2 EBLUP 与收缩</h3>
+<p><b>EBLUP</b> = 经验最佳线性无偏预测，是随机效应的预测值。三个特性必须记住：</p>
+<ul>
+  <li><b>它是预测，不是观测。</b>带收缩（shrinkage）性质——群组样本量越小、收缩越强。</li>
+  <li>不能直接当原始数据做二次分析。</li>
+  <li>在试验里的正当用途是<b>中心层面的质量监测</b>（发现偏离的中心），不是疗效结论的依据。</li>
+</ul>
+
+<h3>6.3 ICC</h3>
+<pre><code>ICC = sigma2_between / (sigma2_between + sigma2_within)</code></pre>
+<p>经验阈值：<b>ICC &gt; 0.05 就有建模价值</b>；&gt; 0.1 强烈建议加随机截距。三水平数据只算两层会<b>高估</b>
+ICC——漏掉的那一层被算进了"组内"还是"组间"取决于你怎么切，总之是错的。</p>
+
+<h3>6.4 Aliasing（混叠）</h3>
+<p>两类：<b>内禀混叠</b>——某个效应无法被数据唯一确定（如每个受试者只有一个访视，却想估受试者随机截距
+和残差，两者不可分）；<b>协方差参数混叠</b>——两个协方差参数估的是同一个东西（如 CS 结构下再想估
+随机截距方差与残差相关）。</p>
+
+<div class="box finding">
+  <span class="t">警告信号与处理</span>
+  <p>信号：协方差估计的 SE 极大或缺失、Z 值不报告、迭代日志里出现"parameters are not uniquely
+  determined"、不同初值给出不同答案、两个参数的估计值几乎相等。<b>处理</b>：报告可识别的<b>合并参数</b>，
+  而不是硬报某一个 <code>D</code> 元素——审稿人挑的就是这个。在 MMRM 里，UN 结构下"漏写
+  <code>TYPE=</code>"与"随机截距 + 对角残差"的混叠是最常见的一种。</p>
+</div>
+
+<h3>6.5 协变量中心化</h3>
+<p>中心化<b>不改变治疗对比</b>，但降低截距与协变量之间的共线，让收敛更稳、截距可解释。<b>必须写明是哪种</b>：
+总体均值中心化（跨所有组）还是组均值中心化（组内）——两者在多水平模型里含义不同，混用会导致系数解释错位。
+论文审稿挑的就是"中心化方法没写明"。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">7</span>第 3 章：两水平聚类 —— 多中心试验的中心效应</h2>
+<p class="lede">幼鼠 ∈ 窝，翻译成受试者 ∈ 中心。</p>
+
+<p>书里第 3 章用 <code>PROC MIXED</code> / <code>PROC GLIMMIX</code> 分析幼鼠出生体重，窝是随机截距。
+在试验里这就是<b>基线期的中心效应分析</b>：中心间差异有多大？要不要在后续模型里吸收它？</p>
+
+<h3>7.1 模型</h3>
+
+<pre><code>Y_ij = beta_0 + beta_1 * TRTP_ij + s_j + e_ij
+
+s_j ~ N(0, sigma2_site)      中心随机截距
+e_ij ~ N(0, sigma2)          受试者内残差</code></pre>
+
+<h3>7.2 SAS：随机截距 + 边界 LRT + ICC</h3>
+
+<pre><code><span class="cm">/* 基线记录：一行一个受试者 */</span>
+<span class="kw">proc</span> <span class="kw">sort</span> <span class="kw">data</span>=adlbc out=base nodupkey;
+   <span class="kw">by</span> usubjid;
+   <span class="kw">where</span> avisitn = 0;
+<span class="kw">run</span>;
+
+<span class="kw">proc</span> <span class="kw">glimmix</span> <span class="kw">data</span>=base;
+   <span class="kw">class</span> siteid usubjid trtp;
+   <span class="kw">model</span> aval = trtp / <span class="kw">solution</span> <span class="kw">ddfm</span>=kr;
+   <span class="kw">random</span> intercept / <span class="kw">subject</span>=siteid;
+   <span class="cm">/* 边界 LRT：检验 中心间方差 = 0 */</span>
+   <span class="kw">covtest</span> <span class="mk">'site_var'</span> 0 .;
+   <span class="kw">ods</span> <span class="kw">output</span> covparms = covparms;
+<span class="kw">run</span>;
+
+<span class="cm">/* ICC = 中心间方差 / (中心间方差 + 残差方差) */</span>
+<span class="kw">proc</span> <span class="kw">sql</span>;
+   <span class="kw">select</span> <span class="kw">sum</span>(<span class="kw">case</span> <span class="kw">when</span> covparm = <span class="mk">'Intercept'</span> <span class="kw">then</span> <span class="kw">estimate</span> <span class="kw">else</span> 0 <span class="kw">end</span>)
+          / <span class="kw">sum</span>(<span class="kw">estimate</span>) <span class="kw">as</span> icc
+   <span class="kw">from</span> covparms;
+<span class="kw">quit</span>;</code></pre>
+
+<div class="box">
+  <span class="t">为什么这一章用 GLIMMIX 而 MMRM 用 MIXED</span>
+  <p>这不是偏好问题。<b><code>PROC GLIMMIX</code> 有 <code>COVTEST</code> 语句，可以对协方差参数做似然比
+  检验</b>——包括方差分量为 0 这种<b>边界</b>情形（此时检验统计量是
+  <span class="num">0.5·χ²(0) + 0.5·χ²(1)</span> 的混合分布，不能用普通 χ²）。<code>PROC MIXED</code> 没有
+  这个语句。所以：<b>需要做"这个随机效应要不要保留"的检验时用 GLIMMIX；连续终点的 MMRM 主分析用 MIXED。</b>
+  两者不要混为一谈，也不要反过来用。</p>
+</div>
+
+<h3>7.3 输出怎么读</h3>
+<p><b>Covariance Parameter Estimates</b> 第一行是中心间方差，第二行是受试者内残差。<code>COVTEST</code>
+的 P 值回答"中心随机效应是否必要"。<b>Solution for Fixed Effects</b> 里治疗组的对比——在基线期它<b>应该</b>
+不显著（随机化的检验），显著才说明有问题。</p>
+
+<div class="box takeaway">
+  <span class="t">What to take away</span>
+  <p>中心 ICC 哪怕只有 0.05–0.1，也足以让忽略它的标准误偏小。但<b>在监管视角下，中心效应更多是敏感性分析
+  的议题而非主分析的焦点</b>——总体治疗效应才是 estimand。把它算出来是为了知道模型该不该吸收它。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">8</span>第 4 章：三水平 —— 受试者 ∈ 中心 ∈ 地区</h2>
+<p class="lede">书里用 HLM，试验里用 SAS 写同样的事。</p>
+
+<p>学生 ∈ 教室 ∈ 学校，对应受试者 ∈ 中心 ∈ 地区/国家。三水平的价值在于<b>把变异分解到正确的层级</b>：
+如果 15% 的变异来自地区、5% 来自中心，那么只建模中心会低估标准误。</p>
+
+<pre><code><span class="kw">proc</span> <span class="kw">mixed</span> <span class="kw">data</span>=adsl <span class="kw">method</span>=reml;
+   <span class="kw">class</span> regionid siteid trtp;
+   <span class="kw">model</span> aval = trtp / <span class="kw">solution</span> <span class="kw">ddfm</span>=kr;
+   <span class="kw">random</span> intercept / <span class="kw">subject</span>=regionid;
+   <span class="kw">random</span> intercept / <span class="kw">subject</span>=siteid(regionid);
+<span class="kw">run</span>;</code></pre>
+
+<div class="box finding">
+  <span class="t">嵌套必须写出来</span>
+  <p><code>subject=siteid</code> 与 <code>subject=siteid(regionid)</code> 是<b>不同的模型</b>：前者把
+  siteid 当作全局唯一的标识，等于声明了一个两水平模型；后者才声明了三层的嵌套关系。真实数据里
+  siteid 常常是 "01"、"02" 这种在每个地区<b>重复出现</b>的编号——此时漏写 <code>(regionid)</code>
+  会把不同地区的同名中心合并成一个，静默地出错。<b>这一条在真实项目里是高频缺陷。</b></p>
+</div>
+
+<p>ICC 在多层下要按层分解：</p>
+<pre><code>ICC_region = sigma2_region / (sigma2_region + sigma2_site + sigma2_res)
+ICC_site   = (sigma2_region + sigma2_site) / (...)</code></pre>
+
+<!-- ============================================================ -->
+<h2><span class="n">9</span>第 5 章：重复测量 —— 多次实验室测量与随机系数</h2>
+<p class="lede">书里用 SPSS，模型是随机系数；与第 6 章 MMRM 的区别要分清。</p>
+
+<p>大鼠在多个脑区、多种处理条件下测量——<b>重复测量因子不是时间</b>，因此没有脱落问题。临床对应：
+同一受试者的多个部位、多种刺激条件、或安全性实验室的多个参数（按 PARAMCD 分别建模）。</p>
+
+<h3>9.1 随机系数模型</h3>
+
+<pre><code><span class="kw">proc</span> <span class="kw">mixed</span> <span class="kw">data</span>=rep;
+   <span class="kw">class</span> usubjid region trt;
+   <span class="kw">model</span> aval = trt region trt*region / <span class="kw">solution</span> <span class="kw">ddfm</span>=kr;
+   <span class="kw">random</span> intercept region / <span class="kw">subject</span>=usubjid <span class="kw">type</span>=un;
+<span class="kw">run</span>;</code></pre>
+
+<p><code>type=un</code> 在 <code>RANDOM</code> 上意味着<b>随机截距与随机斜率可以相关</b>——
+例如"基线高的受试者变化也更快"。若设为 <code>type=vc</code>（或省略协方差），等于假定二者独立，
+这是一个真实但常常未经论证的约束。</p>
+
+<h3>9.2 与第 6 章 MMRM 的区别</h3>
+
+<table>
+  <thead><tr><th style="width:150px;">维度</th><th style="width:240px;">第 5 章 随机系数</th><th>第 6 章 MMRM</th></tr></thead>
+  <tbody>
+    <tr><td>时间/位置的处理</td><td>常作连续变量（随机斜率）</td><td><b>作分类变量</b>（每个访视一个参数）</td></tr>
+    <tr><td>随机效应</td><td>显式建模（<code>RANDOM</code>）</td><td><b>不设</b>，直接建模 <code>V&#8341;</code></td></tr>
+    <tr><td>推断目标</td><td>对象特异（条件）</td><td><b>总体平均（边际）</b></td></tr>
+    <tr><td>缺失关切</td><td>通常无</td><td><b>脱落是核心</b></td></tr>
+    <tr><td>临床主用途</td><td>探索个体轨迹差异</td><td><b>注册试验主要终点</b></td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2><span class="n">10</span>第 6 章：纵向数据 —— 通向 MMRM</h2>
+<p class="lede">全书对临床最重要的一章。它的完整展开在另一篇笔记里。</p>
+
+<p>自闭症儿童在 2、3、5、9、13 岁多次测量——<b>时间点少且固定、脱落是核心关切、要推断总体平均</b>。
+这正是注册试验里连续型纵向终点的标准形态。</p>
+
+<p>书里沿随机系数的路子走（<code>RANDOM intercept age</code>）；而<b>监管实践走的是另一条路</b>：
+不设随机效应，直接把 <code>V&#8341;</code> 建成非结构化。两条路在线性模型下常常数学等价，
+差别在<b>推断目标</b>——监管机构要的是总体平均治疗效应，边际模型直接给出的就是这个量。</p>
+
+<div class="box takeaway">
+  <span class="t">这一章的完整实现</span>
+  <p>生产代码、每个选项的代价、六个输入场景、四个缺陷、以及一个可运行的校验程序，全部在
+  <a href="mmrm-clinical-note.html">MMRM for a longitudinal continuous endpoint</a> 里，
+  程序在 <a href="mmrm_check.sas"><code>mmrm_check.sas</code></a>。这里只留一句结论：
+  <b>MMRM 不填补任何东西</b>——它把已观测的那部分放进似然，缺失的那部分根本不出现。这就是它在 MAR 下
+  无偏、在 MNAR 下同样无能为力的全部原因。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">11</span>第 7 章：协方差结构建模 —— 怎么选，以及选错会怎样</h2>
+<p class="lede">书里用牙贴面案例（Stata），结构选择的完整流程在这里。</p>
+
+<h3>11.1 选择策略</h3>
+
+<table>
+  <thead><tr><th style="width:120px;">结构</th><th style="width:88px;">参数</th><th style="width:110px;">定位</th><th>理由</th></tr></thead>
+  <tbody>
+    <tr><td><b>UN</b></td><td><span class="num">K(K+1)/2</span></td><td><span class="pill ok">主分析</span></td><td>不对方差与相关施加任何模式，不会因结构错设而偏倚。代价是参数平方增长、小样本可能不收敛。</td></tr>
+    <tr><td><b>TOEP</b></td><td><span class="num">2K − 1</span></td><td><span class="pill ok">第一降级</span></td><td>同一时间滞后共享一个相关，但方差仍可各访视不同——比 AR(1) 更贴近真实。</td></tr>
+    <tr><td>AR(1)</td><td class="num">2</td><td><span class="pill cav">谨慎</span></td><td><b>隐含等间隔</b>。访视在 0/4/8/12/16/24 周时用它需要论证；不等间隔会破坏假设。</td></tr>
+    <tr><td>CS</td><td class="num">2</td><td><span class="pill cav">仅敏感性</span></td><td>等价于随机截距模型的隐含边际结构。作为主分析假设过强。</td></tr>
+  </tbody>
+</table>
+
+<pre><code>%<span class="kw">macro</span> fit(<span class="kw">type</span>);
+   <span class="kw">proc</span> <span class="kw">mixed</span> <span class="kw">data</span>=adbds <span class="kw">method</span>=reml;
+      <span class="kw">class</span> usubjid trtp(<span class="kw">ref</span>=<span class="mk">'Placebo'</span>) avisitn;
+      <span class="kw">model</span> chg = base_c trtp avisitn trtp*avisitn / <span class="kw">ddfm</span>=kr;
+      <span class="kw">repeated</span> avisitn / <span class="kw">subject</span>=usubjid <span class="kw">type</span>=&amp;<span class="kw">type</span>;
+      <span class="kw">ods</span> <span class="kw">output</span> FitStatistics = fit_&amp;<span class="kw">type</span>;
+   <span class="kw">run</span>;
+%<span class="kw">mend</span> fit;
+%fit(un) %fit(toep) %fit(ar(1)) %fit(cs)</code></pre>
+
+<div class="box finding">
+  <span class="t">最大的风险不在统计，在流程</span>
+  <p>用 AIC/BIC 挑结构，然后报告挑中的那个，<b>是数据驱动的选择</b>，会破坏 α 控制，是审评必问的点。
+  正确的顺序是：<b>在 SAP 里写死主分析结构 + 有序的降级路径</b>（UN → TOEP → AR(1) → sandwich），
+  揭盲后照着走。信息准则只在<b>探索性</b>分析或设计阶段有位置。行业里已经有人把这条流程自动化成宏——
+  PharmaSUG 2015 SP02 的 <code>%mmrm</code> 支持 <code>sel_method=ORDER</code>，按给定顺序取第一个收敛的
+  结构，而不是取 AIC 最小的。这才是"预先规定"该有的样子 <em class="ev">[lit]</em>。</p>
+</div>
+
+<h3>11.2 混叠在结构选择里的表现</h3>
+<p>UN 结构下若再试图估"随机截距 + 对角残差"，两个来源估的是同一份协方差——这就是协方差参数混叠。
+表现是估计值不稳定、SE 巨大、不同初值给不同答案。<b>处理</b>：去掉其中一个来源（通常是去掉
+<code>RANDOM</code>，这正是 MMRM 的做法），或报告可识别的合并量。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">12</span>第 8 章：交叉随机效应 —— 评估者 × 受试者</h2>
+<p class="lede">书里案例最少、但试验里最容易被漏掉的一章。</p>
+
+<p>SAT 成绩的例子里，学生与教师是<b>交叉</b>的（一个学生被多位教师教过，一位教师教过多位学生）。
+临床对应：<b>不同访视由不同评估者评分</b>（HAM-D、PANSS 这类量表尤其常见）。评估者与受试者交叉，
+而评估者通常嵌套于中心——一个三层的交叉-混合结构。</p>
+
+<pre><code><span class="kw">proc</span> <span class="kw">mixed</span> <span class="kw">data</span>=adqs;
+   <span class="kw">class</span> usubjid raterid siteid trtp avisitn;
+   <span class="kw">model</span> chg = base_c trtp avisitn trtp*avisitn / <span class="kw">solution</span> <span class="kw">ddfm</span>=kr;
+   <span class="kw">random</span> intercept / <span class="kw">subject</span>=raterid;              <span class="cm">/* 评估者：交叉 */</span>
+   <span class="kw">random</span> intercept / <span class="kw">subject</span>=siteid;               <span class="cm">/* 中心：嵌套 */</span>
+   <span class="kw">repeated</span> avisitn / <span class="kw">subject</span>=usubjid <span class="kw">type</span>=un;      <span class="cm">/* 受试者内相关 */</span>
+<span class="kw">run</span>;</code></pre>
+
+<div class="box">
+  <span class="t">代价与取舍</span>
+  <p>交叉效应的设计矩阵不再是分块对角，计算量显著更大。<b>若评估者人数少或每位评估者覆盖的受试者极少，
+  方差分量不可识别</b>——此时把它当固定效应或直接忽略（并用固定效应吸收中心）更现实。但忽略前要先问：
+  评估者偏倚会不会系统性地区分治疗组？在开放标签试验里，这个问题的答案是"会"，那它就必须进模型。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2><span class="n">13</span>第 9 章：功效与样本量 —— 设计效应是那个被漏掉的乘子</h2>
+<p class="lede">第 3 版新增，也是把前面的方差分量用回来的地方。</p>
+
+<h3>13.1 设计效应</h3>
+<p>聚类/纵向设计下的样本量不等于独立观测下的样本量。<b>设计效应</b>（Design Effect）：</p>
+
+<pre><code>DE = 1 + (m - 1) * ICC</code></pre>
+
+<p>其中 <code>m</code> 是每组的观测数，<code>ICC</code> 是组内相关。所需的<b>有效</b>样本量是
+<span class="num">n_independent × DE</span> <em class="ev">[lit]</em>。</p>
+
+<div class="box finding">
+  <span class="t">最常犯的错</span>
+  <p>用<b>独立观测</b>的公式算样本量，然后发现功效不足。ICC = 0.1、每中心 30 人的试验，
+  <span class="num">DE = 1 + 29 × 0.1 = 3.9</span>——需要的样本量接近四倍。这个数必须在方案阶段就算出来，
+  而它依赖的 ICC 只能来自文献或先导数据。<b>第二个常见错误是用 CS 而非 UN 估计 σ²</b>，这会高估功效。</p>
+</div>
+
+<h3>13.2 落地</h3>
+<pre><code><span class="cm">/* 先拟合先导/历史数据，拿到方差分量 */</span>
+<span class="kw">proc</span> <span class="kw">mixed</span> <span class="kw">data</span>=pilot;
+   <span class="kw">class</span> usubjid trtp avisitn;
+   <span class="kw">model</span> chg = trtp avisitn trtp*avisitn / <span class="kw">ddfm</span>=kr;
+   <span class="kw">repeated</span> avisitn / <span class="kw">subject</span>=usubjid <span class="kw">type</span>=un;
+   <span class="kw">ods</span> <span class="kw">output</span> CovParms = cp;
+<span class="kw">run</span>;
+<span class="cm">/* 再用这些分量做模拟式功效评估 */</span></code></pre>
+
+<p><code>PROC POWER</code> 对混合模型的支持有限；实务中更常见的是<b>模拟</b>：用先导数据的方差分量生成数据，
+重复拟合，数拒绝率。R 侧是 <code>simr</code> / <code>powerLMM</code>。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">14</span>附录 A：看懂公式所需的四个矩阵直觉</h2>
+<p class="lede">只讲会反复用到的那几个，不求完备。</p>
+
+<ol>
+  <li><b>矩阵乘法 = 逐行做加权求和。</b><span class="num">Xβ</span> 就是把每个受试者的协变量按系数加权加起来。</li>
+  <li><b>形状比内容重要。</b><span class="num">n&#8341; × p</span> 乘 <span class="num">p × 1</span> 得
+  <span class="num">n&#8341; × 1</span>。模型的维度推导靠形状就够了。</li>
+  <li><b>协方差矩阵 = 一张"变异地图"。</b>对角线是各时点/各组的方差，非对角线是它们之间的协方差。
+  <code>D</code>、<code>R&#8341;</code>、<code>V&#8341;</code> 都是这种地图。</li>
+  <li><b>正定 = 这张地图自洽。</b>任何方向的线性组合都有正方差。软件报"not positive definite"，
+  就是在说你要求的结构图与数据不相容——通常是参数要多了。</li>
+</ol>
+
+<p>两个在似然里反复出现的东西：<span class="num">|V&#8341;|</span>（广义方差，把相关考虑进去后的总变异）
+与 <span class="num">(y − Xβ)′ V&#8341;⁻¹ (y − Xβ)</span>（马氏距离，按相关结构加权后的残差平方和）。
+<b>逆矩阵 <code>V&#8341;⁻¹</code> 的作用就是"加权"</b>——相关越强的地方权重越低。Cholesky 分解被反复提及，
+是因为它能保证优化过程中矩阵始终正定，同时让 <span class="num">|V|</span> 和对数好算。</p>
+
+<!-- ============================================================ -->
+<h2><span class="n">15</span>附录 B：全书易错点速查</h2>
+<p class="lede">按主题分块。带 ★ 的是在真实试验里最容易撞上的。</p>
+
+<h3>15.1 估计与检验</h3>
+<table>
+  <thead><tr><th style="width:36px;">#</th><th style="width:250px;">易错点</th><th>后果与正确做法</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1 ★</td><td>用 REML 做固定效应的 LRT</td><td>似然不可比，p 偏小 → <b>改用 ML</b></td></tr>
+    <tr><td class="num">2</td><td>用 ML 做协方差参数的 LRT</td><td>方差被低估 → <b>改用 REML</b></td></tr>
+    <tr><td class="num">3 ★</td><td>不指定 <code>ddfm</code></td><td>默认 containment，小样本偏乐观 → <code>ddfm=kr</code></td></tr>
+    <tr><td class="num">4</td><td>LRT 两模型用了不同样本</td><td>似然不可比 → 先固定同一分析集</td></tr>
+    <tr><td class="num">5</td><td>用 REML 拟合比较 AIC/BIC</td><td>信息准则不可比 → 改 ML 后比较</td></tr>
+  </tbody>
+</table>
+
+<h3>15.2 协方差与模型设定</h3>
+<table>
+  <thead><tr><th style="width:36px;">#</th><th style="width:250px;">易错点</th><th>后果与正确做法</th></tr></thead>
+  <tbody>
+    <tr><td class="num">6 ★</td><td>不显式 <code>type=un</code></td><td>退化成对角，标准误严重低估 → 写明 <code>type=</code></td></tr>
+    <tr><td class="num">7</td><td>AR(1) 用在非等距访视</td><td>等间隔假设被破坏 → 改 TOEP 或 UN</td></tr>
+    <tr><td class="num">8 ★</td><td>嵌套写成 <code>subject=siteid</code></td><td>漏声明 region，模型变成两层 → 写 <code>siteid(regionid)</code></td></tr>
+    <tr><td class="num">9</td><td>把交叉当嵌套</td><td>方差被错估 → 多个 <code>subject=</code></td></tr>
+    <tr><td class="num">10</td><td>报告单条 <code>D</code> 元素</td><td>混叠，审稿挑刺 → 报告可识别的合并参数</td></tr>
+    <tr><td class="num">11</td><td>忽略非正定警告</td><td>参数不可信 → 按 §5.4 的顺序处理，别直接报</td></tr>
+    <tr><td class="num">12</td><td>协变量尺度差几个数量级</td><td>收敛失败 → 重新缩放（分钟改小时）</td></tr>
+  </tbody>
+</table>
+
+<h3>15.3 缺失数据与监管</h3>
+<table>
+  <thead><tr><th style="width:36px;">#</th><th style="width:250px;">易错点</th><th>后果与正确做法</th></tr></thead>
+  <tbody>
+    <tr><td class="num">13 ★</td><td>LOCF 当主分析</td><td>有偏、假阳性 → MMRM / MI 为主</td></tr>
+    <tr><td class="num">14 ★</td><td>临时换协方差结构</td><td>数据驱动，破坏 α → SAP 预先规定降级路径</td></tr>
+    <tr><td class="num">15</td><td>不报告 MAR 假设、不做敏感性分析</td><td>MNAR 风险未暴露 → pattern-mixture / tipping point</td></tr>
+    <tr><td class="num">16</td><td>estimand 不明确</td><td>审评质疑 → ICH E9(R1) 五属性 + 五策略</td></tr>
+    <tr><td class="num">17</td><td>把基线当响应变量</td><td>损失 DF 且引入偏倚 → 基线作协变量</td></tr>
+  </tbody>
+</table>
+
+<h3>15.4 功效</h3>
+<table>
+  <thead><tr><th style="width:36px;">#</th><th style="width:250px;">易错点</th><th>后果与正确做法</th></tr></thead>
+  <tbody>
+    <tr><td class="num">18 ★</td><td>忽略设计效应 DE</td><td>样本量不足，功效低 → <span class="num">DE = 1 + (m−1)·ICC</span></td></tr>
+    <tr><td class="num">19</td><td>用 CS 而非 UN 估 σ²</td><td>功效被高估 → 模拟或 UN 估计</td></tr>
+    <tr><td class="num">20</td><td>不预先模拟</td><td>试验做完才发现功效不足 → 先导数据 + 模拟</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2><span class="n">16</span>附录 C：从书到临床的一页对照</h2>
+<p class="lede">把这本书的词汇翻译成试验里的词汇。</p>
+
+<table>
+  <thead><tr><th style="width:230px;">书里的说法</th><th style="width:230px;">试验里的说法</th><th>要注意的差异</th></tr></thead>
+  <tbody>
+    <tr><td>随机效应 / 方差分量</td><td>中心效应、受试者间变异</td><td>书里关心方差本身；试验里它通常是<b>要吸收掉的干扰</b>，不是目标</td></tr>
+    <tr><td>固定效应 β</td><td>治疗效应</td><td>书里在条件模型下解释（对象特异）；试验要的是<b>总体平均</b></td></tr>
+    <tr><td>隐含边际模型</td><td>MMRM</td><td>书里作为定理讲；试验里是<b>缺省主分析</b></td></tr>
+    <tr><td>随机系数 / 生长曲线</td><td>个体轨迹差异</td><td>探索性；确证试验主要终点通常不需要</td></tr>
+    <tr><td>ICC</td><td>中心同质性</td><td>书里用于决定是否加随机效应；试验里还用于<b>样本量折算</b></td></tr>
+    <tr><td>EBLUP</td><td>中心层面的预测</td><td>书里可以解释它；试验里只用于<b>质量监测</b></td></tr>
+    <tr><td>脱落/缺失</td><td>estimand + MAR + 敏感性分析</td><td><b>书里几乎不讲</b>——这是本书最大的缺口，必须由 ICH E9(R1) 与行业会议资料补上</td></tr>
+    <tr><td>模型选择（AIC/BIC）</td><td>SAP 预先规定 + 降级路径</td><td><b>书里鼓励比较；监管要求先定后跑</b>——这是书与实务最尖锐的一处冲突 <em class="ev">[lit]</em></td></tr>
+  </tbody>
+</table>
+
+<div class="box takeaway">
+  <span class="t">读书时最该记住的一句</span>
+  <p>这本书教的是<b>模型</b>；注册试验要的是<b>预先规定的推断承诺</b>。两者重叠但不相同——凡书里说
+  "比较一下哪个结构拟合更好"的地方，在试验里都要换成"揭盲前写死"，其余部分可以直接用。</p>
+</div>
+
+<footer>
+  <p><b>底本与版本。</b> West BT, Welch KB, Galecki AT, Gillespie BW (2022).
+  <i>Linear Mixed Models: A Practical Guide Using Statistical Software</i>, 3rd ed. CRC Press.
+  软件环境：SAS 9.4、IBM SPSS 28.0、Stata 17、R 4.1.2、HLM 8。</p>
+  <p><b>缺口的填补。</b>本书不覆盖缺失数据机制、estimand 与敏感性分析——这三件事在临床试验里决定了
+  MMRM 能不能注册。补充来源：ICH E9(R1)（estimand 框架）、FDA <i>Missing Data in Clinical Trials</i>
+  (2023)、Kenward &amp; Roger (1997)（KR 自由度）、Schuler (2021, arXiv:2108.06621)（时间 × 协变量交互）、
+  以及 PharmaSUG / PHUSE 上关于 pattern-mixture、参考基准插补与结构选择自动化的论文。
+  其中"信息准则挑选结构"与"预先规定"之间的冲突，是本笔记在每一章都标注的地方。</p>
+  <p><b>与配套的 clinical note。</b>第 2、6、7 章交汇处的生产代码、六个输入场景与一个可运行的校验程序在
+  <a href="mmrm-clinical-note.html">MMRM for a longitudinal continuous endpoint</a>；
+  程序在 <a href="mmrm_check.sas"><code>mmrm_check.sas</code></a>。
+  <b>本机无 SAS 会话</b>，该程序的断言尚未真正运行过——它断言的是结构性事实（参数个数、分子自由度、
+  基线是否留在响应向量里），而非任何具体估计值。</p>
+</footer>
+
+</div>
+
+<!-- @@SPN-SHELL:JS:BEGIN@@ -->
+<script id="spn-shell-js">
+/* ==========================================================================
+   SAS Pattern Note — contents shell behaviour
+   1. builds the table of contents from .page h2 / h3 (no hand-maintained list)
+   2. highlights the heading you are reading
+   3. shows / hides the panel; the choice is remembered
+   Idempotent and dependency-free. Safe to refresh by re-running the injector.
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  var HIDDEN = 'spn-hidden';
+  var KEY = 'spn.toc.hidden';
+  var NARROW = 1080;
+
+  var body = document.body;
+  var toggle = document.querySelector('.spn-toggle');
+  var toc = document.querySelector('.spn-toc');
+  var nav = document.querySelector('.spn-toc-nav');
+  var scrim = document.querySelector('.spn-scrim');
+  if (!toggle || !toc || !nav) return;
+
+  /* ---------- collect headings ---------- */
+  var heads = [].slice.call(document.querySelectorAll('.page h2, .page h3'))
+    .filter(function (h) { return !h.classList.contains('spn-skip'); });
+
+  if (!heads.length) {                 /* nothing to navigate: get out of the way */
+    toc.style.display = 'none';
+    toggle.style.display = 'none';
+    if (scrim) scrim.style.display = 'none';
+    return;
+  }
+
+  var used = {};
+  function slug(text) {
+    var base = text.toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim().replace(/\s+/g, '-').replace(/-+/g, '-');
+    if (!base) base = 'section';
+    var n = used[base] = (used[base] || 0) + 1;
+    return n > 1 ? base + '-' + n : base;
+  }
+  function label(h) {
+    var text = h.textContent.replace(/\s+/g, ' ').trim();
+    var num = h.querySelector('.n');                 /* the "1" / "2" run-in numeral */
+    if (num) {
+      var t = num.textContent.trim();
+      if (t && text.indexOf(t) === 0) text = t + ' ' + text.slice(t.length).trim();
+    }
+    return text;
+  }
+
+  var links = heads.map(function (h) {
+    if (!h.id) h.id = slug(label(h));
+    var a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = label(h);
+    a.className = h.tagName === 'H3' ? 'spn-h3' : 'spn-h2';
+    nav.appendChild(a);
+    return a;
+  });
+
+  /* ---------- show / hide ---------- */
+  var lbl = toggle.querySelector('.lbl');
+  function paint() {
+    var hidden = body.classList.contains(HIDDEN);
+    if (lbl) lbl.textContent = hidden ? 'Contents' : 'Hide contents';
+    toggle.setAttribute('aria-expanded', String(!hidden));
+    if (scrim) scrim.setAttribute('aria-hidden', String(hidden));
+  }
+  function setHidden(v, remember) {
+    body.classList.toggle(HIDDEN, !!v);
+    paint();
+    if (remember) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {} }
+  }
+  toggle.addEventListener('click', function () {
+    setHidden(!body.classList.contains(HIDDEN), true);
+  });
+  if (scrim) scrim.addEventListener('click', function () { setHidden(true, true); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !body.classList.contains(HIDDEN) && window.innerWidth <= NARROW) {
+      setHidden(true, true);
+    }
+  });
+  nav.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('a') && window.innerWidth <= NARROW) setHidden(true, true);
+  });
+
+  /* ---------- restore ---------- */
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  setHidden(saved === null ? window.innerWidth <= NARROW : saved === '1', false);
+
+  /* ---------- reading position ---------- */
+  var ticking = false;
+  function sync() {
+    ticking = false;
+    var y = window.pageYOffset || document.documentElement.scrollTop;
+    var current = 0, i;
+    for (i = 0; i < heads.length; i++) {
+      if (heads[i].getBoundingClientRect().top <= 96) { current = i; } else { break; }
+    }
+    if (window.innerHeight + y >= document.documentElement.scrollHeight - 4) {
+      current = heads.length - 1;
+    }
+    for (i = 0; i < links.length; i++) links[i].classList.toggle('active', i === current);
+
+    if (!body.classList.contains(HIDDEN)) {              /* keep it in view inside the panel */
+      var el = links[current];
+      var top = el.offsetTop, view = toc.clientHeight;
+      if (top < toc.scrollTop + 24) toc.scrollTop = Math.max(0, top - 24);
+      else if (top + el.offsetHeight > toc.scrollTop + view - 40) toc.scrollTop = top - view + 80;
+    }
+  }
+  function onScroll() {
+    if (!ticking) { ticking = true; window.requestAnimationFrame(sync); }
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  sync();
+})();
+</script>
+<!-- @@SPN-SHELL:JS:END@@ -->
+</body>
+</html>
